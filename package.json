@@ -2,7 +2,7 @@
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
 	"description": "Live preview of a TF2 HUD's sourcescheme.res: server browser, options dialog and console, with every setting behind each element.",
-	"version": "0.5.4",
+	"version": "0.5.5",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
@@ -156,5 +156,10 @@
 				}
 			}
 		}
-	}
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/itsmmarc/tf2-sourcescheme-preview.git"
+	},
+	"homepage": "https://github.com/itsmmarc/tf2-sourcescheme-preview"
 }
