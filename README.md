@@ -36,4 +36,5 @@ The preview follows whichever HUD the `.res` file you're editing belongs to.
 - **Settings:** which settings each control reads, and its fallback when a setting is missing, come from `ApplySchemeSettings` in `src/vgui2/vgui_controls`. For example, tabs have no hover state, and while pressed they draw with `Button.SelectedBgColor`.
 - **Console colors:** errors and warnings are drawn in `255 90 90`, a color the game uses itself rather than reading from the scheme.
 - **Translucent colors** are blended in linear light, as TF2 does, rather than the way browsers blend. For example, stock tabs (`201 188 162 150` over `60 56 53`) come out `162 152 131` here and `163 152 132` in-game.
-- **Not public:** the server browser's own code isn't public, so its list using the `ServerBrowserSmall` font for rows and headers is a best match to the game. The scheme parser and border drawing live in the engine's `vgui2/src`, which also isn't public, so border line offsets and the exact shape of rounded (`backgroundtype 2`) corners are approximate.
+- **Server browser fonts:** the server list's rows and column headers use `DefaultSmall`, as in the game.
+- **Not public:** the scheme parser and border drawing live in the engine's `vgui2/src`, which also isn't public, so border line offsets and the exact shape of rounded (`backgroundtype 2`) corners are approximate.
