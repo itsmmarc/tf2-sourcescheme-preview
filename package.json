@@ -1,160 +1,160 @@
 {
-  "name": "tf2-sourcescheme-preview",
-  "displayName": "TF2 SourceScheme Preview",
-  "description": "Live preview of a TF2 HUD's sourcescheme.res: server browser, options dialog and console, with every setting behind each element.",
-  "version": "0.5.3",
-  "publisher": "local",
-  "license": "MIT",
-  "icon": "media/icon.png",
-  "engines": {
-    "vscode": "^1.75.0"
-  },
-  "categories": [
-    "Visualization",
-    "Other"
-  ],
-  "keywords": [
-    "tf2",
-    "team fortress 2",
-    "hud",
-    "vgui",
-    "sourcescheme",
-    "source engine"
-  ],
-  "main": "./extension.js",
-  "activationEvents": [
-    "onWebviewPanel:tf2SourceScheme.preview"
-  ],
-  "contributes": {
-    "commands": [
-      {
-        "command": "tf2SourceScheme.openPreview",
-        "title": "Open SourceScheme Preview",
-        "category": "TF2",
-        "icon": "$(open-preview)"
-      },
-      {
-        "command": "tf2SourceScheme.zoomIn",
-        "title": "Zoom In",
-        "category": "TF2",
-        "icon": "$(zoom-in)"
-      },
-      {
-        "command": "tf2SourceScheme.zoomOut",
-        "title": "Zoom Out",
-        "category": "TF2",
-        "icon": "$(zoom-out)"
-      },
-      {
-        "command": "tf2SourceScheme.zoomFit",
-        "title": "Zoom to Fit",
-        "category": "TF2"
-      },
-      {
-        "command": "tf2SourceScheme.zoomReset",
-        "title": "Actual Size (100%)",
-        "category": "TF2"
-      },
-      {
-        "command": "tf2SourceScheme.resetWindowSize",
-        "title": "Reset Window Size",
-        "category": "TF2"
-      }
-    ],
-    "menus": {
-      "editor/title": [
-        {
-          "command": "tf2SourceScheme.openPreview",
-          "when": "resourceExtname =~ /^\\.res$/i",
-          "group": "navigation"
-        }
-      ],
-      "explorer/context": [
-        {
-          "command": "tf2SourceScheme.openPreview",
-          "when": "resourceExtname =~ /^\\.res$/i",
-          "group": "navigation"
-        }
-      ],
-      "webview/context": [
-        {
-          "command": "tf2SourceScheme.zoomIn",
-          "when": "webviewId == 'tf2SourceScheme.preview'",
-          "group": "1_zoom@1"
-        },
-        {
-          "command": "tf2SourceScheme.zoomOut",
-          "when": "webviewId == 'tf2SourceScheme.preview'",
-          "group": "1_zoom@2"
-        },
-        {
-          "command": "tf2SourceScheme.zoomFit",
-          "when": "webviewId == 'tf2SourceScheme.preview'",
-          "group": "1_zoom@3"
-        },
-        {
-          "command": "tf2SourceScheme.zoomReset",
-          "when": "webviewId == 'tf2SourceScheme.preview'",
-          "group": "1_zoom@4"
-        },
-        {
-          "command": "tf2SourceScheme.resetWindowSize",
-          "when": "webviewId == 'tf2SourceScheme.preview' && tf2Resizable",
-          "group": "2_window@1"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "tf2SourceScheme.zoomIn",
-          "when": "false"
-        },
-        {
-          "command": "tf2SourceScheme.zoomOut",
-          "when": "false"
-        },
-        {
-          "command": "tf2SourceScheme.zoomFit",
-          "when": "false"
-        },
-        {
-          "command": "tf2SourceScheme.zoomReset",
-          "when": "false"
-        },
-        {
-          "command": "tf2SourceScheme.resetWindowSize",
-          "when": "false"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "TF2 SourceScheme Preview",
-      "properties": {
-        "tf2SourceScheme.screenHeight": {
-          "type": "number",
-          "default": 1440,
-          "enum": [
-            720,
-            768,
-            900,
-            1080,
-            1200,
-            1440,
-            1600,
-            2160
-          ],
-          "enumDescriptions": [
-            "720p",
-            "768p",
-            "900p",
-            "1080p",
-            "1200p",
-            "1440p",
-            "1600p",
-            "4K (2160p)"
-          ],
-          "markdownDescription": "Your in-game screen height. TF2 scales its dialogs and their fonts by this height ÷ 1080, and fonts with several `yres` entries (such as `ServerBrowserSmall`) pick the entry for this height."
-        }
-      }
-    }
-  }
+	"name": "tf2-sourcescheme-preview",
+	"displayName": "TF2 SourceScheme Preview",
+	"description": "Live preview of a TF2 HUD's sourcescheme.res: server browser, options dialog and console, with every setting behind each element.",
+	"version": "0.5.4",
+	"publisher": "itsmmarc",
+	"license": "MIT",
+	"icon": "media/icon.png",
+	"engines": {
+		"vscode": "^1.75.0"
+	},
+	"categories": [
+		"Visualization",
+		"Other"
+	],
+	"keywords": [
+		"tf2",
+		"team fortress 2",
+		"hud",
+		"vgui",
+		"sourcescheme",
+		"source engine"
+	],
+	"main": "./extension.js",
+	"activationEvents": [
+		"onWebviewPanel:tf2SourceScheme.preview"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "tf2SourceScheme.openPreview",
+				"title": "Open SourceScheme Preview",
+				"category": "TF2",
+				"icon": "$(open-preview)"
+			},
+			{
+				"command": "tf2SourceScheme.zoomIn",
+				"title": "Zoom In",
+				"category": "TF2",
+				"icon": "$(zoom-in)"
+			},
+			{
+				"command": "tf2SourceScheme.zoomOut",
+				"title": "Zoom Out",
+				"category": "TF2",
+				"icon": "$(zoom-out)"
+			},
+			{
+				"command": "tf2SourceScheme.zoomFit",
+				"title": "Zoom to Fit",
+				"category": "TF2"
+			},
+			{
+				"command": "tf2SourceScheme.zoomReset",
+				"title": "Actual Size (100%)",
+				"category": "TF2"
+			},
+			{
+				"command": "tf2SourceScheme.resetWindowSize",
+				"title": "Reset Window Size",
+				"category": "TF2"
+			}
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"command": "tf2SourceScheme.openPreview",
+					"when": "resourceExtname =~ /^\\.res$/i",
+					"group": "navigation"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "tf2SourceScheme.openPreview",
+					"when": "resourceExtname =~ /^\\.res$/i",
+					"group": "navigation"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "tf2SourceScheme.zoomIn",
+					"when": "webviewId == 'tf2SourceScheme.preview'",
+					"group": "1_zoom@1"
+				},
+				{
+					"command": "tf2SourceScheme.zoomOut",
+					"when": "webviewId == 'tf2SourceScheme.preview'",
+					"group": "1_zoom@2"
+				},
+				{
+					"command": "tf2SourceScheme.zoomFit",
+					"when": "webviewId == 'tf2SourceScheme.preview'",
+					"group": "1_zoom@3"
+				},
+				{
+					"command": "tf2SourceScheme.zoomReset",
+					"when": "webviewId == 'tf2SourceScheme.preview'",
+					"group": "1_zoom@4"
+				},
+				{
+					"command": "tf2SourceScheme.resetWindowSize",
+					"when": "webviewId == 'tf2SourceScheme.preview' && tf2Resizable",
+					"group": "2_window@1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "tf2SourceScheme.zoomIn",
+					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.zoomOut",
+					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.zoomFit",
+					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.zoomReset",
+					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.resetWindowSize",
+					"when": "false"
+				}
+			]
+		},
+		"configuration": {
+			"title": "TF2 SourceScheme Preview",
+			"properties": {
+				"tf2SourceScheme.screenHeight": {
+					"type": "number",
+					"default": 1440,
+					"enum": [
+						720,
+						768,
+						900,
+						1080,
+						1200,
+						1440,
+						1600,
+						2160
+					],
+					"enumDescriptions": [
+						"720p",
+						"768p",
+						"900p",
+						"1080p",
+						"1200p",
+						"1440p",
+						"1600p",
+						"4K (2160p)"
+					],
+					"markdownDescription": "Your in-game screen height. TF2 scales its dialogs and their fonts by this height ÷ 1080, and fonts with several `yres` entries (such as `ServerBrowserSmall`) pick the entry for this height."
+				}
+			}
+		}
+	}
 }
