@@ -2,7 +2,7 @@
 
 A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme.res`. It draws mock versions of the server browser, options dialog and console from the scheme, updating live as the user types. Clicking any element shows every color, font, border and string behind it, each linked to its definition.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.5.5.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.5.6.
 
 ## Build and install
 
@@ -82,6 +82,10 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - The list's rows and headers use `DefaultSmall` (user-confirmed; PR #1).
 - The Game filter dropdown can't be opened.
 - The Workshop, Latency, Anti-cheat and Location dropdowns list `<All>` first but show blank when it's picked.
+
+**Image borders** (`scalable_image`)
+- `draw_corner_width`/`draw_corner_height` scale by the classic 480-line proportional base, not 1080: `floor(v * screenHeight / 480)`. So 4 draws 12px at 1440p, measured from the user's in-game screenshot (12px corners, 12px stretched edge, 12px corners on a 36px active tab).
+- `src_corner_*` are texture pixels and aren't scaled. The source corner is stretched to the draw size, so a draw size bigger than the source corner looks blurry or pixelated in-game too.
 
 **Other**
 - Tabs have no hover state; while pressed they draw `Button.SelectedBgColor`.

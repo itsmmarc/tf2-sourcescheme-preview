@@ -376,9 +376,12 @@
       if (b.kind === 'image') {
         const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
         if (url) {
+          // draw_corner_* use the engine's classic 480-line proportional scale,
+          // not the 1080 one: 4 draws 12px at 1440p (measured in-game)
           const sw = b.srcW || 0, sh = b.srcH || 0;
+          const dw = Math.floor((b.drawW || sw) * this.yres / 480 + 1e-6), dh = Math.floor((b.drawH || sh) * this.yres / 480 + 1e-6);
           out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
-            `border-width:${b.drawH || sh}px ${b.drawW || sw}px;border-image:url(${url}) ${sh} ${sw} fill / ${b.drawH || sh}px ${b.drawW || sw}px stretch;}`);
+            `border-width:${dh}px ${dw}px;border-image:url(${url}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;}`);
         } else {
           out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px}`);
         }
