@@ -1,0 +1,82 @@
+/* Mock VGUI dialogs. Positions come from preview.js (stock .res coordinates);
+   colors, fonts and borders come from the generated scheme stylesheet. */
+.pv-stage { position: relative; color: #fff; user-select: none; -webkit-user-select: none; --s: 1; }
+/* only the console output and text boxes are selectable, as in the game */
+.pv-stage .vg-rich .vg-lbody, .pv-stage .vg-rich .vg-lbody *, .pv-stage input { user-select: text; -webkit-user-select: text; }
+.pv-stage * { box-sizing: border-box; }
+.pv-stage .ab { position: absolute; }
+.pv-stage .bd:not(.ab) { position: relative; }
+.pv-stage input { font: inherit; border: 0; margin: 0; outline: none; }
+
+.vg-frame { position: relative; flex: none; overflow: visible; }
+.ctl { display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.ctl .txt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vg-label.wrap { white-space: normal; align-items: flex-start; }
+.vg-label.wrap .txt { overflow: visible; }
+.vg-tbtn { display: grid; place-items: center; }
+.vg-grip { position: absolute; width: 12px; height: 12px; }
+.vg-grip i { position: absolute; width: 2px; height: 2px; }
+.vg-grip i:nth-child(1) { right: 1px; bottom: 9px; } .vg-grip i:nth-child(2) { right: 0; bottom: 8px; }
+.vg-grip i:nth-child(3) { right: 5px; bottom: 5px; } .vg-grip i:nth-child(4) { right: 4px; bottom: 4px; }
+.vg-grip i:nth-child(5) { right: 9px; bottom: 1px; } .vg-grip i:nth-child(6) { right: 8px; bottom: 0; }
+/* resizable windows: right edge, bottom edge, bottom-right corner (and the grip) */
+.vg-rs { position: absolute; z-index: 30; }
+.vg-rs.e { top: 0; right: -3px; width: 7px; bottom: 10px; cursor: ew-resize; }
+.vg-rs.s { left: 0; bottom: -3px; height: 7px; right: 10px; cursor: ns-resize; }
+.vg-rs.se { right: -3px; bottom: -3px; width: 16px; height: 16px; cursor: nwse-resize; }
+.pv-stage .vg-grip[data-rs] { cursor: nwse-resize; z-index: 31; }
+
+/* tabs (PropertySheet: 1px apart, text + 10px margin + 6px inset, at least 64px) */
+.vg-tabs { display: flex; align-items: flex-start; }
+.vg-tab { cursor: default; flex: none; }
+
+/* buttons: west-aligned text with the Label text inset */
+.vg-btn { padding: 0 6px; cursor: default; }
+.vg-url { padding: 0 6px; text-decoration: underline; cursor: default; }
+.vg-label { padding: 0 1px; }
+
+/* lists */
+.vg-list, .vg-slist, .vg-rich { overflow: hidden; }
+.vg-lhead { overflow: hidden; }
+.vg-lhead .col { padding: 0 4px; justify-content: flex-start; }
+.vg-lhead .col svg { margin: auto; }
+.vg-lbody { overflow: hidden; }
+.vg-row { display: flex; align-items: center; white-space: nowrap; cursor: default; }
+.vg-row > span { padding: 0 4px; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; flex: none; }
+.vg-row > span svg { margin: auto; }
+.vg-list .empty { padding: 8px 10px; white-space: normal; }
+.vg-shead { position: relative; padding: 0; }
+.vg-shead::after { content: ""; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 1px; }
+.vg-shead > span, .vg-srow > span { flex: none; overflow: hidden; text-overflow: ellipsis; }
+.vg-srow { padding: 0; cursor: default; }
+.vg-srow > span:first-child { padding-left: 6px; }
+
+/* scroll bars */
+.vg-sbb { display: grid; place-items: center; cursor: default; }
+
+/* menus */
+.vg-menu { padding: 1px 0; }
+.vg-mi { cursor: default; padding-block: 1px; }
+.vg-mdiv { height: 1px; margin: 3px 4px; }
+.vg-tip { padding: 3px 8px; white-space: nowrap; pointer-events: none; }
+
+/* check boxes (Marlett box glyph) */
+.vg-check { gap: 6px; padding-left: 4px; cursor: default; user-select: none; }
+.vg-check .box { width: 12px; height: 12px; display: grid; place-items: center; flex: none; padding: 1px; }
+
+/* combo boxes: text entry with an arrow button the size of the font */
+.vg-combo { padding-left: 4px; cursor: default; }
+.vg-combo .v { flex: 1; overflow: hidden; white-space: nowrap; }
+.vg-combo .arr { width: 18px; align-self: stretch; display: grid; place-items: center; flex: none; }
+
+/* sliders */
+.vg-slider { --u: calc(1px * var(--s)); }
+.vg-slider .rail { position: absolute; left: calc(4 * var(--u)); right: calc(4 * var(--u)); top: calc(2 * var(--u)); height: calc(20 * var(--u)); cursor: default; touch-action: none; }
+.vg-slider .track { position: absolute; left: 0; right: 0; top: calc(6 * var(--u)); height: calc(4 * var(--u)); }
+.vg-slider .ticks { position: absolute; left: 0; right: 0; top: calc(14 * var(--u)); height: calc(5 * var(--u)); display: flex; justify-content: space-between; }
+.vg-slider .ticks i { width: max(1px, var(--u)); height: calc(5 * var(--u)); }
+.vg-slider .nob { position: absolute; top: 0; width: calc(8 * var(--u)); height: calc(16 * var(--u)); margin-left: calc(-4 * var(--u)); }
+.vg-slider .ends { position: absolute; left: 0; right: 0; top: calc(21 * var(--u)); display: flex; justify-content: space-between; }
+
+.vg-entry { padding: 0 4px; }
+.vg-rich .vg-lbody > div { padding: 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; }

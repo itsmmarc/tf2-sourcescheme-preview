@@ -1,0 +1,232 @@
+// ---------------------------------------------------------------------------
+// TF2 SourceScheme Preview: a webview that draws the server browser, options
+// dialog and console from the sourcescheme.res chain you are editing.
+// ---------------------------------------------------------------------------
+'use strict';
+const vscode = require('vscode');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const HUD = require('./lib/hud.js');
+const KV = require('./media/kv.js');
+global.KV = KV;
+const { Scheme } = require('./media/scheme.js');
+
+const VIEW_TYPE = 'tf2SourceScheme.preview';
+const ENGINE_URI = vscode.Uri.parse('tf2-sourcescheme:/SourceSchemeBase.res');
+
+let engineText = '';
+let current = null; // the open Preview
+
+class Preview {
+  constructor(context, panel, entry) {
+    this.context = context;
+    this.panel = panel;
+    this.entry = entry;
+    this.watched = new Set();   // lower-cased fsPaths in the #base chain
+    this.sentFonts = new Map(); // abs → mtime already sent
+    this.timer = null;
+    this.disposables = [];
+    this.ready = false;
+
+    const media = vscode.Uri.joinPath(context.extensionUri, 'media');
+    panel.webview.options = { enableScripts: true, localResourceRoots: [media] };
+    panel.webview.html = this.html(media);
+    panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.png');
+
+    panel.webview.onDidReceiveMessage(m => this.onMessage(m), null, this.disposables);
+    panel.onDidDispose(() => this.dispose(), null, this.disposables);
+  }
+
+  html(media) {
+    const w = this.panel.webview;
+    const nonce = crypto.randomBytes(16).toString('base64');
+    const src = f => w.asWebviewUri(vscode.Uri.joinPath(media, f));
+    const scripts = ['kv.js', 'scheme.js', 'fonts.js', 'vtf.js', 'preview.js', 'webview.js']
+      .map(f => `<script nonce="${nonce}" src="${src(f)}"></script>`).join('\n');
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${w.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${w.cspSource} data: blob:; img-src ${w.cspSource} data: blob:;">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="${src('vgui.css')}"><link rel="stylesheet" href="${src('webview.css')}">
+<title>SourceScheme Preview</title></head><body>
+<div id="app"></div>
+${scripts}
+</body></html>`;
+  }
+
+  setEntry(entry) {
+    if (entry && this.entry && path.resolve(entry).toLowerCase() === path.resolve(this.entry).toLowerCase()) return;
+    this.entry = entry;
+    this.sentFonts.clear();
+    this.update(true);
+  }
+
+  schedule(ms) {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.update(false), ms == null ? 120 : ms);
+  }
+
+  readText(abs) {
+    const lk = path.resolve(abs).toLowerCase();
+    const doc = vscode.workspace.textDocuments.find(d => d.uri.scheme === 'file' && path.resolve(d.uri.fsPath).toLowerCase() === lk);
+    return doc ? doc.getText() : HUD.decode(fs.readFileSync(abs));
+  }
+
+  update(reset) {
+    if (!this.ready) return;
+    const post = m => this.panel.webview.postMessage(m);
+    if (!this.entry) {
+      this.watched.clear();
+      this.panel.title = 'SourceScheme Preview';
+      post({ type: 'empty' });
+      return;
+    }
+    const chain = HUD.loadChain(this.entry, p => this.readText(p));
+    this.root = chain.root;
+    this.watched = new Set(chain.files.map(f => path.resolve(f.fsPath).toLowerCase()));
+    const files = chain.files.concat([{ key: HUD.ENGINE_KEY, path: 'SourceSchemeBase.res (game)', fsPath: ENGINE_URI.toString(), text: engineText, virtual: true }]);
+    const label = path.basename(chain.root);
+    this.panel.title = `SourceScheme: ${label}`;
+    post({ type: 'scheme', reset: !!reset, label, entry: chain.files[0] ? chain.files[0].key : null, engineKey: HUD.ENGINE_KEY, files });
+
+    // the HUD's own strings (resource/chat_english.txt), which replace the game's English text
+    let strings = null;
+    try { strings = HUD.loadStrings(chain.root, p => this.readText(p)); } catch (e) { console.error('[tf2-sourcescheme] reading chat_english.txt failed', e); }
+    if (strings) this.watched.add(path.resolve(strings.fsPath).toLowerCase());
+    post({ type: 'strings', strings });
+
+    // fonts named in CustomFontFiles
+    try {
+      const map = new Map(files.map(f => [f.key, Object.assign({}, f)]));
+      const scheme = new Scheme({ files: map, entry: files[0].key, engineKey: HUD.ENGINE_KEY });
+      for (const ff of HUD.fontFiles(chain.root, scheme.customFontList())) {
+        const mtime = fs.statSync(ff.abs).mtimeMs;
+        const sent = this.sentFonts.get(ff.abs);
+        if (sent && sent.mtime === mtime && ff.names.every(n => sent.names.includes(n))) continue;
+        this.sentFonts.set(ff.abs, { mtime, names: ff.names.slice() });
+        post({ type: 'font', path: ff.rel, names: ff.names, data: fs.readFileSync(ff.abs).toString('base64') });
+      }
+    } catch (e) { console.error('[tf2-sourcescheme] font loading failed', e); }
+  }
+
+  async onMessage(m) {
+    if (m.type === 'ready') { this.ready = true; this.sendSettings(); this.update(true); return; }
+    if (m.type === 'open') { openAt(m.fsPath, m.offset || 0); return; }
+    if (m.type === 'image') {
+      let data = null;
+      try { const hit = this.root && HUD.findImage(this.root, m.path); if (hit) data = fs.readFileSync(hit).toString('base64'); } catch (e) { /* not found */ }
+      this.panel.webview.postMessage({ type: 'image', path: m.path, data });
+      return;
+    }
+    if (m.type === 'state') { this.context.workspaceState.update('tf2SourceScheme.viewState', m.state); }
+  }
+
+  sendSettings() {
+    const h = vscode.workspace.getConfiguration('tf2SourceScheme').get('screenHeight', 1440);
+    this.panel.webview.postMessage({ type: 'settings', screenHeight: +h || 1440 });
+  }
+
+  dispose() {
+    clearTimeout(this.timer);
+    this.disposables.forEach(d => d.dispose());
+    if (current === this) current = null;
+  }
+}
+
+// Open a file (or the built-in SourceSchemeBase.res) at a character offset.
+async function openAt(fsPath, offset) {
+  const uri = /^tf2-sourcescheme:/.test(fsPath) ? ENGINE_URI : vscode.Uri.file(fsPath);
+  const doc = await vscode.workspace.openTextDocument(uri);
+  // the webview counts \n line endings; map onto the document's own text
+  const text = doc.getText();
+  let off = 0, seen = 0;
+  while (off < text.length && seen < offset) { if (text[off] === '\r' && text[off + 1] === '\n') off++; off++; seen++; }
+  const pos = doc.positionAt(off);
+  const visible = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
+  const column = visible ? visible.viewColumn : (current && current.panel.viewColumn === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One);
+  const editor = await vscode.window.showTextDocument(doc, { viewColumn: column, preserveFocus: false });
+  const line = doc.lineAt(pos.line);
+  editor.selection = new vscode.Selection(pos, line.range.end);
+  editor.revealRange(line.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+
+function entryForEditor(editor) {
+  if (!editor || editor.document.uri.scheme !== 'file' || !/\.res$/i.test(editor.document.uri.fsPath)) return undefined;
+  const ws = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  return HUD.findEntry(editor.document.uri.fsPath, ws && ws.uri.fsPath);
+}
+
+async function findAnyEntry() {
+  const hits = await vscode.workspace.findFiles('**/[rR][eE][sS][oO][uU][rR][cC][eE]/[sS][oO][uU][rR][cC][eE][sS][cC][hH][eE][mM][eE].[rR][eE][sS]', '**/node_modules/**', 5);
+  return hits.length ? hits[0].fsPath : null;
+}
+
+function activate(context) {
+  engineText = fs.readFileSync(path.join(context.extensionPath, 'media', 'engine_base.res'), 'utf8');
+
+  context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('tf2-sourcescheme', {
+    provideTextDocumentContent: () => engineText,
+  }));
+
+  const open = async (uri) => {
+    let entry = null;
+    if (uri && uri.fsPath && /\.res$/i.test(uri.fsPath)) entry = HUD.findEntry(uri.fsPath);
+    if (!entry) entry = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
+    if (current) { current.panel.reveal(vscode.ViewColumn.Beside, true); current.setEntry(entry); return; }
+    const panel = vscode.window.createWebviewPanel(VIEW_TYPE, 'SourceScheme Preview',
+      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, retainContextWhenHidden: true });
+    current = new Preview(context, panel, entry);
+    if (!entry) vscode.window.showInformationMessage('Open a HUD folder that contains resource/sourcescheme.res to preview it.');
+  };
+
+  context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openPreview', open));
+
+  // right-click menu in the preview (package.json "webview/context")
+  const toPreview = m => () => { if (current) current.panel.webview.postMessage(m); };
+  for (const [cmd, m] of [
+    ['tf2SourceScheme.zoomIn', { type: 'zoom', op: 'in' }],
+    ['tf2SourceScheme.zoomOut', { type: 'zoom', op: 'out' }],
+    ['tf2SourceScheme.zoomFit', { type: 'zoom', op: 'fit' }],
+    ['tf2SourceScheme.zoomReset', { type: 'zoom', op: 'reset' }],
+    ['tf2SourceScheme.resetWindowSize', { type: 'resetSize' }],
+  ]) context.subscriptions.push(vscode.commands.registerCommand(cmd, toPreview(m)));
+
+  context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
+    async deserializeWebviewPanel(panel) {
+      const entry = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
+      current = new Preview(context, panel, entry);
+    },
+  }));
+
+  // live updates
+  context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
+    if (current && current.watched.has(path.resolve(e.document.uri.fsPath).toLowerCase())) current.schedule(120);
+  }));
+  context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => {
+    // closing without saving reverts to what's on disk
+    if (current && current.watched.has(path.resolve(d.uri.fsPath).toLowerCase())) current.schedule(50);
+  }));
+  const watcher = vscode.workspace.createFileSystemWatcher('**/*.{res,RES,ttf,otf,TTF,OTF,txt,TXT}');
+  const onDisk = uri => {
+    if (!current || !current.root) return;
+    const lk = path.resolve(uri.fsPath).toLowerCase();
+    if (lk.startsWith(path.resolve(current.root).toLowerCase())) current.schedule(200);
+  };
+  watcher.onDidChange(onDisk); watcher.onDidCreate(onDisk); watcher.onDidDelete(onDisk);
+  context.subscriptions.push(watcher);
+
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+    if (current && e.affectsConfiguration('tf2SourceScheme.screenHeight')) current.sendSettings();
+  }));
+
+  // follow the HUD of the .res file you're editing
+  context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+    if (!current) return;
+    const entry = entryForEditor(editor);
+    if (entry) current.setEntry(entry);
+  }));
+}
+
+function deactivate() { if (current) current.panel.dispose(); }
+
+module.exports = { activate, deactivate };

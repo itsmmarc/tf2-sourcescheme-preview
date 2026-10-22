@@ -1,0 +1,37 @@
+# TF2 SourceScheme Preview
+
+A live preview of a Team Fortress 2 HUD's `resource/sourcescheme.res`. It draws mock versions of the server browser, the options dialog and the developer console from your scheme, and updates as you type.
+
+## Use
+
+1. Open your HUD folder in VS Code.
+2. Open any `.res` file from the HUD, for example `resource/sourcescheme.res` or a file it `#base`s.
+3. Click the preview icon in the editor title bar, or run **TF2: Open SourceScheme Preview** from the Command Palette.
+
+The preview opens beside your editor. Use the buttons at the top to switch between the server browser, options dialog and console. To zoom, hold Ctrl and scroll (or pinch), or right-click the preview for **Zoom In**, **Zoom Out**, **Zoom to Fit** and **Actual Size (100%)**.
+
+**The server browser and console are resizable**, like in the game: drag the right edge, bottom edge or the grip in the bottom-right corner. The list grows with the window while the filters and buttons stay pinned to the bottom and right. Double-click an edge, or right-click and choose **Reset Window Size**, to go back to the stock size. The options dialog has a fixed size in the game, so it does here too.
+
+Set **TF2 SourceScheme Preview: Screen Height** (`tf2SourceScheme.screenHeight`, default 1440) to your in-game resolution. TF2 scales these dialogs by screen height ÷ 1080, and fonts with several `yres` entries pick the one for your screen (and are then scaled too).
+
+**Click anything in the preview** to list every color, font and border that draws it in the sidebar, by what it paints: text, background, hover, pressed, selected, disabled and unfocused states. Each setting shows how it resolves (`Button.BgColor → SS_Button_BG → 29 26 32 217`). Click any name to jump to the line that defines it.
+
+Settings your HUD doesn't set are listed too, with the built-in default the game uses instead.
+
+## What it reads
+
+- **The `#base` chain**, starting at `resource/sourcescheme.res`. Paths are relative to the including file and matched without regard to case, like on Windows. Unsaved changes in open editors are used.
+- **The game's own `SourceSchemeBase.res`**, which is built in. Clicking a value inherited from it opens a read-only copy.
+- **Fonts** listed in `CustomFontFiles`, loaded from your HUD folder. Fonts that aren't in the HUD use the copy installed on your computer, if there is one, and are otherwise substituted (the sidebar says which).
+- **Image borders** from `materials/vgui/*.vtf` in your HUD folder.
+- **Your HUD's strings** from `resource/chat_english.txt`. TF2 lets a HUD's `chat_english.txt` replace the options dialog's strings (`GameUI_*`, `PropertyDialog_*`, and `Valve_*`/`TF_*` in the key list; `"GameUI_Keyboard" "KEYBOARD"`, say), and the preview shows those replacements wherever the game would. The game ignores it for server browser (`ServerBrowser_*`) and console (`Console_*`) strings, so the preview does too, and the sidebar says so if your file sets one. Click a piece of text to see which token it comes from and whether your HUD changes it; click the token to jump to its line.
+
+The preview follows whichever HUD the `.res` file you're editing belongs to.
+
+## Accuracy
+
+- **Layout:** every control sits at the position and size in TF2's stock layout files: `servers/customgamespage_filters.res`, `internetgamespage.res` and `blacklistedserverspage.res` for the server browser, and `resource/optionssub*.res` for the options pages. Window, tab, list and console geometry follows the Source SDK 2013 code (`Frame`, `PropertySheet`, `PropertyDialog`, `ListPanel`, `CConsolePanel`). Positions, sizes and font heights are scaled by screen height ÷ 1080 and rounded down, as the game does; `Frame.ClientInsetX` and the tabs' 2px/4px offsets aren't scaled. Tabs are sized to their text (text + 3 × the scaled 6px text inset + a scaled 8px), with no minimum width, 1px apart. The options key list follows `SectionedListPanel`: rows a scaled 20px apart, section headers their font + 7px tall, the action column a scaled 286px wide. List column headers are as tall as `ScrollBar.Wide`. Checked against in-game screenshots at 1440p, the options dialog's tabs, list and buttons land on the same pixels.
+- **Settings:** which settings each control reads, and its fallback when a setting is missing, come from `ApplySchemeSettings` in `src/vgui2/vgui_controls`. For example, tabs have no hover state, and while pressed they draw with `Button.SelectedBgColor`.
+- **Console colors:** errors and warnings are drawn in `255 90 90`, a color the game uses itself rather than reading from the scheme.
+- **Translucent colors** are blended in linear light, as TF2 does, rather than the way browsers blend. For example, stock tabs (`201 188 162 150` over `60 56 53`) come out `162 152 131` here and `163 152 132` in-game.
+- **Not public:** the server browser's own code isn't public, so its list using the `ServerBrowserSmall` font for rows and headers is a best match to the game. The scheme parser and border drawing live in the engine's `vgui2/src`, which also isn't public, so border line offsets and the exact shape of rounded (`backgroundtype 2`) corners are approximate.
