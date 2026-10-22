@@ -58,12 +58,12 @@
       note: 'While switched on it stays pressed, so it uses the pressed background.' },
     url: { name: 'Link button', keys: [['Button.TextColor', 'Text', W], ['Button.ArmedTextColor', 'Text, hover', 'Button.TextColor']], fonts: ['Default'],
       note: 'URLButton\'s source isn\'t public; drawn here as underlined button text.' },
-    colhead: { name: 'List column header', keys: BUTTON, borders: BUTTON_BORDERS, fonts: ['@sbsmall'],
-      note: 'The server browser\'s source isn\'t public. Its list uses the ServerBrowserSmall font (DefaultSmall if that\'s missing), which this preview also uses for the headers.' },
+    colhead: { name: 'List column header', keys: BUTTON, borders: BUTTON_BORDERS, fonts: ['DefaultSmall'],
+      note: 'The server browser\'s list headers use the DefaultSmall font.' },
     list: { name: 'List', keys: [['ListPanel.BgColor', 'Background', W], ['ListPanel.EmptyListInfoTextColor', 'Text, empty list message', W]], borders: [['ButtonDepressedBorder', 'Border']], fonts: ['Default'] },
     row: { name: 'List row', keys: [['ListPanel.TextColor', 'Text', W], ['ListPanel.SelectedTextColor', 'Text, selected', 'ListPanel.TextColor'],
       ['ListPanel.SelectedBgColor', 'Background, selected', W], ['ListPanel.SelectedOutOfFocusBgColor', 'Background, selected, window unfocused', W], ['ListPanel.BgColor', 'Background', W]],
-      fonts: ['@sbsmall'], note: 'The server browser\'s source isn\'t public. Its rows use the ServerBrowserSmall font (DefaultSmall if that\'s missing).' },
+      fonts: ['DefaultSmall'], note: 'The server browser\'s list rows use the DefaultSmall font.' },
     slist: { name: 'Key list', keys: [['SectionedListPanel.BgColor', 'Background', W]], borders: [['ButtonDepressedBorder', 'Border']] },
     shead: { name: 'Key list section header', keys: [['SectionedListPanel.HeaderTextColor', 'Text', W], ['SectionedListPanelHeader.BgColor', 'Background', CLEAR], ['SectionedListPanel.DividerColor', 'Divider line', W]], fonts: ['DefaultVerySmall'] },
     srow: { name: 'Key list row', keys: [['SectionedListPanel.TextColor', 'Text', W], ['SectionedListPanel.BrightTextColor', 'Text, key column', W],
@@ -287,14 +287,13 @@
   Preview.prototype.fontFor = function (f) {
     if (f === '@title') return this.titleFont || 'Default';
     if (f === '@slfont') return this.slFont || 'Default';
-    if (f === '@sbsmall') return this.sbFont || 'DefaultSmall';
     return f;
   };
   Preview.prototype.dynFonts = function (S) {
     const has = n => n && S.fonts.has(n.toLowerCase());
     const t = S.baseString('FrameTitleBar.Font');
     const sl = S.baseString('SectionedListPanel.Font');
-    return { title: has(t) ? t : 'Default', sl: has(sl) ? sl : 'Default', sb: has('ServerBrowserSmall') ? 'ServerBrowserSmall' : 'DefaultSmall' };
+    return { title: has(t) ? t : 'Default', sl: has(sl) ? sl : 'Default' };
   };
   Preview.prototype.setScreen = function (h) { this.yres = h || 1080; SC = this.yres / 1080; };
   Preview.prototype.tall = function (name) {
@@ -308,14 +307,14 @@
 
   // Layout depends on font sizes and a few numeric settings; re-render when they change
   Preview.prototype.layoutSig = function () {
-    return [this.yres, this.titleFont, this.slFont, this.sbFont, ...['@title', 'Default', 'DefaultVerySmall', '@sbsmall', '@slfont', 'ConsoleText', 'DefaultSmall'].map(f => this.tall(f)),
+    return [this.yres, this.titleFont, this.slFont, ...['@title', 'Default', 'DefaultVerySmall', '@slfont', 'ConsoleText', 'DefaultSmall'].map(f => this.tall(f)),
       this.num('ScrollBar.Wide', 17), this.num('Frame.ClientInsetX', 5), this.num('Frame.ClientInsetY', 5), this.num('Frame.TitleTextInsetX', 28), this.num('Menu.TextInset', 6)].join('|');
   };
 
   Preview.prototype.setScheme = function (scheme, opts) {
     this.scheme = scheme; this.opts = opts || this.opts || {};
     const d = this.dynFonts(scheme);
-    this.titleFont = d.title; this.slFont = d.sl; this.sbFont = d.sb;
+    this.titleFont = d.title; this.slFont = d.sl;
     this.style.textContent = this.css();
     const sig = this.layoutSig();
     const changed = sig !== this.sig;
@@ -359,7 +358,7 @@
     const S = this.scheme;
     const col = k => this.color(k, this.keyFallback(k));
     const out = [];
-    const fontNames = new Set(['Default', 'DefaultSmall', 'DefaultVerySmall', 'ConsoleText', this.titleFont, this.slFont, this.sbFont]);
+    const fontNames = new Set(['Default', 'DefaultSmall', 'DefaultVerySmall', 'ConsoleText', this.titleFont, this.slFont]);
     for (const name of fontNames) out.push(`.pv-stage .${fcls(name)}{${this.fontCss(S.font(name, this.yres) || S.font('Default', this.yres))}}`);
 
     // TF2 blends translucent colors in linear light; browsers blend sRGB values.
@@ -647,11 +646,11 @@
   // ---------- server browser ----------
   const SB_COLS = [['', 16, 'lock'], ['', 16, 'vac'], ['', 16, 'replay'], ['Servers', 0], ['Game', 112], ['Players', 54], ['Bots', 38], ['Map', 92], ['Latency', 50], ['Tags', 44]];
   Preview.prototype.serverList = function (x, y, w, h, tab) {
-    const s = this.state, rh = this.tall('@sbsmall') + 2, sw = this.num('ScrollBar.Wide', 17);
+    const s = this.state, rh = this.tall('DefaultSmall') + 2, sw = this.num('ScrollBar.Wide', 17);
     // ListPanel::PerformLayout: column headers are as tall as the scroll bar is wide;
     // the scroll bar runs from the top, 2px in from the right edge and 2px short of the bottom
     const hh = sw, inner = w - sw - 2 / SC;
-    const sbFont = fcls(this.fontFor('@sbsmall'));
+    const sbFont = fcls('DefaultSmall'); // the list's rows and column headers
     let cols = SB_COLS.slice();
     if (tab.history) cols[cols.length - 1] = ['Last played', 70];
     if (tab.blacklist) cols = [['Blacklisted Servers (0)', 0], ['IP Address', 160], ['Blacklisted date', 160]];
