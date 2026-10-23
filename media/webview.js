@@ -320,9 +320,10 @@
     const b = sc.border(name);
     const chain = via.map(v => defLink(v.node, v.key)).concat(defLink(m.node, m.key)).join(' <span class="arrow">→</span> ');
     let detail = '';
-    if (b.kind === 'image') detail = `<div class="val"><span class="muted">image</span> <code>${esc(b.image)}</code>${S.images.get((b.image || '').toLowerCase()) ? '' : ' <span class="muted">(texture not found in the HUD or the game\'s files)</span>'}</div>`;
-    if (b.kind === 'image' && b.color) { const r = sc.resolve(b.color); detail += `<div class="val"><span class="line">${sw(r.ok ? r.rgba : null)}<span class="muted">color</span> <code>${esc(b.color)}</code>${r.ok ? '' : ' <span class="bad">undefined, so the image isn\'t tinted</span>'}</span></div>`; }
-    else {
+    if (b.kind === 'image') {
+      detail = `<div class="val"><span class="muted">image</span> <code>${esc(b.image)}</code>${S.images.get((b.image || '').toLowerCase()) ? '' : ' <span class="muted">(texture not found in the HUD or the game\'s files)</span>'}</div>`;
+      if (b.color) { const r = sc.resolve(b.color); detail += `<div class="val"><span class="line">${sw(r.ok ? r.rgba : null)}<span class="muted">color</span> <code>${esc(b.color)}</code>${r.ok ? '' : ' <span class="bad">undefined, so the image isn\'t tinted</span>'}</span></div>`; }
+    } else {
       const sides = ['left', 'top', 'right', 'bottom'].map(side => {
         const lines = b.sides[side] || [];
         if (!lines.length) return '';
