@@ -16,7 +16,7 @@
 .sdetail { display: grid; gap: 2px; }
 
 /* size */
-.sizes { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 2px 14px 6px; font-size: 12px; }
+.sizes { display: inline-flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .sizes label { display: inline-flex; gap: 6px; align-items: center; }
 .num { width: 64px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--line));
   border-radius: 2px; padding: 2px 4px; font-family: var(--mono); font-size: 12px; outline: none; }

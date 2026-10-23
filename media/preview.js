@@ -376,7 +376,7 @@
       if (b.kind === 'image') {
         const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
         const tint = b.color ? S.resolve(b.color) : null;
-        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres, tint && tint.ok ? tint.rgba : null)}}`);
+        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`);
         continue;
       }
       // lines: painted by a ::after over the control and its children, as the game
@@ -647,7 +647,8 @@
   // max(1 - 2 * corner, 0) of the texture, so a texture that is all corners
   // (64px wide, 32px corners) still gets edges and a centre, stretched from
   // the line where the corners meet, sampled bilinearly. The draw color tints
-  // the texture by multiplying it (vertex color).
+  // the texture by multiplying it (vertex color); its alpha doesn't apply
+  // (checked in-game).
   function nineSlice(img, sw, sh, tint) {
     const key = [sw, sh, tint ? tint.join(' ') : ''].join('|');
     img.cache = img.cache || new Map();

@@ -29,8 +29,6 @@
   };
   const DEFAULT_SIZE = [120, 40];
   const ZOOMS = [0.5, 1, 1.5, 2, 3, 4, 6, 8];
-  const HELP_ONE = 'Click a border\'s <b>Preview</b> link to show it.';
-  const HELP_SLOTS = 'Click a border\'s <b>Preview</b> link to show it. With slots on, use <b>Armed</b> or <b>Selected</b> to fill those slots, then hover or hold the mouse on the panel to see them.';
 
   const saved = vscode.getState() || {};
   const S = {
@@ -56,10 +54,15 @@
     </div>`;
   $('#app').innerHTML = `
     <header class="bar">
-      <label class="tog" title="Preview a button's default, hover and pressed borders"><input type="checkbox" id="t-slots"> Slots</label>
+      <label class="tog" title="Preview a button's default, hover and pressed borders"><input type="checkbox" id="t-slots"> Button states</label>
       <label class="tog" title="Outline the area the panel's contents paint in: the panel less the border's inset"><input type="checkbox" id="t-inset"> Show inset</label>
       <label class="lbl" for="t-bg">bgcolor</label>
       <div class="bgcombo" title="The panel's background: a color from your scheme, or R G B A">${comboHtml('t-bg', 'bgcolor: type to search colors, or enter R G B A', 'none')}</div>
+      <div class="sizes">
+        <label><span class="lbl">wide</span> <input class="num" type="number" id="t-wide" min="1" step="1" title="The panel's wide, in HUD units"></label>
+        <label><span class="lbl">tall</span> <input class="num" type="number" id="t-tall" min="1" step="1" title="The panel's tall, in HUD units"></label>
+        <span class="muted" id="pxsize"></span>
+      </div>
       <span class="grow"></span>
       <label class="lbl" for="t-zoom">Zoom</label>
       <select id="t-zoom">${ZOOMS.map(z => `<option value="${z}">${z * 100}%</option>`).join('')}</select>
@@ -72,13 +75,6 @@
       </section>
       <aside class="side" id="side" aria-label="Border preview settings">
         <div class="head"><div><span class="eyebrow">ClientScheme borders</span><h2 id="hud"></h2></div></div>
-        <p class="note" id="help"></p>
-        <h3>Size</h3>
-        <div class="sizes">
-          <label><span class="muted">wide</span> <input class="num" type="number" id="t-wide" min="1" step="1"></label>
-          <label><span class="muted">tall</span> <input class="num" type="number" id="t-tall" min="1" step="1"></label>
-          <span class="muted" id="pxsize"></span>
-        </div>
         <h3 id="slotshead">Border</h3>
         ${SLOTS.map((s, i) => `
         <div class="slotcard" data-i="${i}">
@@ -163,7 +159,7 @@
     const b = sc && pick.name ? sc.border(pick.name) : null;
     if (b && b.kind === 'image') {
       const tint = b.color ? sc.resolve(b.color) : null;
-      css += `#panel::after{${Preview.imageBorderCss(b, imageFor(b.image), S.yres, tint && tint.ok ? tint.rgba : null)}}`;
+      css += `#panel::after{${Preview.imageBorderCss(b, imageFor(b.image), S.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`;
     } else if (b) {
       const ly = Preview.lineLayers(b, under);
       css += `#panel::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;${ly ? `background-image:${ly.img};${ly.geo}` : ''}}`;
@@ -232,11 +228,11 @@
     if (!opt) { opt = new Option(Math.round(S.zoom * 100) + '%', String(S.zoom)); opt.className = 'custom'; sel.add(opt, [...sel.options].findIndex(o => +o.value > S.zoom) >= 0 ? [...sel.options].findIndex(o => +o.value > S.zoom) : null); }
     sel.value = opt.value;
     const wide = $('#t-wide'), tall = $('#t-tall');
-    if (document.activeElement !== wide) wide.value = S.size[0];
-    if (document.activeElement !== tall) tall.value = S.size[1];
+    // while dragging the corner the fields follow even if one has the focus
+    if (S.resizing || document.activeElement !== wide) wide.value = S.size[0];
+    if (S.resizing || document.activeElement !== tall) tall.value = S.size[1];
     $('#pxsize').textContent = `${hpx(S.size[0])} × ${hpx(S.size[1])} px at ${S.yres}p`;
-    $('#help').innerHTML = S.slotsOn ? HELP_SLOTS : HELP_ONE;
-    $('#slotshead').textContent = S.slotsOn ? 'Slots' : 'Border';
+    $('#slotshead').textContent = S.slotsOn ? 'Button states' : 'Border';
     if (!S.scheme) return;
     $('#hud').textContent = S.label;
     const now = borderFor(stateNow()), state = stateNow();

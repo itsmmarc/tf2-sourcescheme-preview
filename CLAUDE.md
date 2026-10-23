@@ -4,7 +4,7 @@ A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme
 
 It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.1.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.2.
 
 ## Build and install
 
@@ -23,7 +23,7 @@ Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main
 | `media/scheme.js` | `Scheme`: merged colors, base settings, fonts (picks `yres` entries), borders, problem list. |
 | `media/preview.js` | The renderer: all three dialogs, scheme→CSS, the `CONTROLS` table (which scheme keys each control reads, with fallbacks), interaction, resizing, string tokens (`TOK`). |
 | `media/webview.js` | Webview chrome: toolbar, zoom, sidebar inspector, state persistence, messages from the host. |
-| `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the Slots checkbox; searchable dropdowns (borders, and bgcolor over scheme colors) and wide/tall fields in the side panel; the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. Posts `mode` (slots on/off) to the host, which stores it in workspace state and switches the CodeLens between "Preview" and "Preview · Armed · Selected". |
+| `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the "Button states" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button states, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. Posts `mode` (slots on/off) to the host, which stores it in workspace state and switches the CodeLens between "Preview" and "Preview · Armed · Selected". |
 | `media/vgui.css`, `media/webview.css` | Mock dialog styles and webview chrome styles. |
 | `media/fonts.js`, `media/vtf.js` | Font loading and substitution; VTF texture decoding for image borders. |
 | `media/engine_base.res` | The game's real `SourceSchemeBase.res`, built in as the end of every `#base` chain. |
@@ -89,7 +89,7 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 **Image borders** (`scalable_image`)
 - `draw_corner_width`/`draw_corner_height` scale by the classic 480-line proportional base, not 1080: `floor(v * screenHeight / 480)`. So 4 draws 12px at 1440p, measured from the user's in-game screenshot (12px corners, 12px stretched edge, 12px corners on a 36px active tab).
 - Nine pieces, as `ScalableImagePanel::PaintBackground`: corners take `src_corner / texture size` of the UVs and the middle `max(1 - 2 × that, 0)`. A texture that's all corners (64px, 32px corners) gets edges and a centre stretched from the line where the corners meet (bilinear, so the average of the two texels). The preview rebuilds the texture that way (`nineSlice`) and feeds it to CSS `border-image ... fill`.
-- `color` tints the texture by multiplying it (vertex color). `LoadoutItemPopupBorder` (white `tintable_round_64x`, color Black) draws a solid black rounded panel in-game. Whether `color`'s alpha also applies isn't checked; the preview multiplies it too.
+- `color` tints the texture by multiplying it (vertex color). `LoadoutItemPopupBorder` (white `tintable_round_64x`, color Black) draws a solid black rounded panel in-game. `color`'s alpha doesn't apply (user-checked in-game); only its RGB tints.
 - `src_corner_*` are texture pixels and aren't scaled. The source corner is stretched to the draw size, so a draw size bigger than the source corner looks blurry or pixelated in-game too.
 
 **Line borders** (`Border::Paint`; matches the user's 1440p screenshot of a 3-line `ButtonDepressedBorder` pixel for pixel in layout)
