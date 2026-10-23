@@ -4,7 +4,7 @@ A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme
 
 It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.3.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.4.
 
 ## Build and install
 
@@ -24,7 +24,7 @@ Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main
 | `media/scheme.js` | `Scheme`: merged colors, base settings, fonts (picks `yres` entries), borders, problem list. |
 | `media/preview.js` | The renderer: all three dialogs, scheme→CSS, the `CONTROLS` table (which scheme keys each control reads, with fallbacks), interaction, resizing, string tokens (`TOK`). |
 | `media/webview.js` | Webview chrome: toolbar, zoom, sidebar inspector, state persistence, messages from the host. |
-| `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the "Button states" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button states, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. The CodeLens always shows Preview · Armed · Selected; Armed and Selected turn the button states on. |
+| `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the "Button borders" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button borders, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. The CodeLens always shows Preview · Armed · Selected; Armed and Selected turn Button borders on. |
 | `media/vgui.css`, `media/webview.css` | Mock dialog styles and webview chrome styles. |
 | `media/fonts.js`, `media/vtf.js` | Font loading and substitution; VTF texture decoding for image borders. |
 | `media/engine_base.res` | The game's real `SourceSchemeBase.res`, built in as the end of every `#base` chain. |

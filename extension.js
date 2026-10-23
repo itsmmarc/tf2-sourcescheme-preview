@@ -341,7 +341,7 @@ function activate(context) {
     onDidChangeCodeLenses: lensEmitter.event,
     provideCodeLenses(doc) {
       if (!clientEntryForDoc(doc)) return [];
-      // Armed and Selected also turn the preview's button states on
+      // Armed and Selected also turn Button borders on
       const links = [['Preview', 0], ['Armed', 1], ['Selected', 2]];
       const tips = ['Show this border (border_default)', 'Use this border for border_armed (hover)', 'Use this border for border_selected (pressed)'];
       return HUD.bordersIn(doc.getText()).flatMap(b => {

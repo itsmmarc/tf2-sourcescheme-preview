@@ -54,7 +54,7 @@
     </div>`;
   $('#app').innerHTML = `
     <header class="bar">
-      <label class="tog" title="Preview a button's default, hover and pressed borders"><input type="checkbox" id="t-slots"> Button states</label>
+      <label class="tog" title="Preview a button's default, hover and pressed borders"><input type="checkbox" id="t-slots"> Button borders</label>
       <label class="tog" title="Outline the area the panel's contents paint in: the panel less the border's inset"><input type="checkbox" id="t-inset"> Show inset</label>
       <label class="lbl" for="t-bg">bgcolor</label>
       <div class="bgcombo" title="The panel's background: a color from your scheme, or R G B A">${comboHtml('t-bg', 'bgcolor: type to search colors, or enter R G B A', 'none')}</div>
@@ -232,7 +232,7 @@
     if (S.resizing || document.activeElement !== wide) wide.value = S.size[0];
     if (S.resizing || document.activeElement !== tall) tall.value = S.size[1];
     $('#pxsize').textContent = `${hpx(S.size[0])} × ${hpx(S.size[1])} px at ${S.yres}p`;
-    $('#slotshead').textContent = S.slotsOn ? 'Button states' : 'Border';
+    $('#slotshead').textContent = S.slotsOn ? 'Button borders' : 'Border';
     if (!S.scheme) return;
     $('#hud').textContent = S.label;
     const now = borderFor(stateNow()), state = stateNow();
@@ -276,7 +276,7 @@
   // a border from a CodeLens link: Preview fills border_default, Armed and Selected their slots
   function setFromLens(name, slot) {
     if (!name) return;
-    // Armed and Selected only make sense with the button states, so they turn them on
+    // Armed and Selected only make sense with Button borders, so they turn it on
     if (slot > 0 && !S.slotsOn) { S.slotsOn = true; S.hover = S.down = false; }
     // the panel shows the state that was just set while idle
     if (S.slotsOn) S.target = slot;
