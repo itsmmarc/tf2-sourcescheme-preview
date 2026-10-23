@@ -409,7 +409,14 @@
   // ---------- the panel: hover is armed, pressed is selected (slots only) ----------
   const panel = $('#panel');
   // the resize grip isn't part of the button, so it doesn't arm it
-  const setHover = h => { if (h === S.hover) return; S.hover = h; if (!S.down && S.slotsOn) render(); };
+  // Once the mouse has been over the panel it acts like the real button: leaving
+  // it shows the default border, not the state picked in the side panel
+  const setHover = h => {
+    if (h === S.hover) return;
+    S.hover = h;
+    if (h && S.slotsOn && S.target !== 0) { S.target = 0; persist(); }
+    if (!S.down && S.slotsOn) render();
+  };
   panel.addEventListener('pointerover', e => setHover(!S.resizing && !e.target.closest('#grip')));
   panel.addEventListener('pointerleave', () => setHover(false));
   panel.addEventListener('pointerdown', e => {

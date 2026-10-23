@@ -4,7 +4,7 @@ A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme
 
 It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.4.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.5.
 
 ## Build and install
 

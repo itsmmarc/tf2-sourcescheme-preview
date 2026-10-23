@@ -2,7 +2,7 @@
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
 	"description": "Live preview of a TF2 HUD's sourcescheme.res (server browser, options dialog and console, with every setting behind each element) and of the borders in its clientscheme.res.",
-	"version": "0.6.4",
+	"version": "0.6.5",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
