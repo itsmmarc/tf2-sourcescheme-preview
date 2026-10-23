@@ -140,6 +140,8 @@ function readText(abs) {
 // ---------------------------------------------------------------------------
 const BORDER_VIEW = 'tf2SourceScheme.borderPreview';
 let borders = null; // the open BorderPreview
+let lensEmitter = null; // fires when the CodeLens links change (slots turned on or off)
+const SLOTS_KEY = 'tf2SourceScheme.borderSlots';
 
 class BorderPreview {
   constructor(context, panel, entry) {
@@ -150,7 +152,7 @@ class BorderPreview {
     this.timer = null;
     this.disposables = [];
     this.ready = false;
-    this.pending = null; // a border to show once the webview is ready
+    this.pending = null; // [name, slot] to show once the webview is ready
 
     const media = vscode.Uri.joinPath(context.extensionUri, 'media');
     panel.webview.options = { enableScripts: true, localResourceRoots: [media] };
@@ -205,20 +207,28 @@ ${scripts}
       missing: chain.missing.map(m => ({ from: path.basename(m.from), ref: m.ref })) });
   }
 
-  // Put a border in the selected slot
-  show(name) {
+  // Put a border in a slot (0 border_default, 1 border_armed, 2 border_selected)
+  show(name, slot) {
     if (!name) return;
-    if (!this.ready) { this.pending = name; return; }
-    this.panel.webview.postMessage({ type: 'border', name });
+    if (!this.ready) { this.pending = [name, slot]; return; }
+    this.panel.webview.postMessage({ type: 'border', name, slot: slot || 0 });
   }
 
   async onMessage(m) {
     if (m.type === 'ready') {
       this.ready = true; this.sendSettings(); this.update(true);
-      if (this.pending) { this.show(this.pending); this.pending = null; }
+      if (this.pending) { this.show(...this.pending); this.pending = null; }
       return;
     }
     if (m.type === 'open') { openAt(m.fsPath, m.offset || 0); return; }
+    if (m.type === 'mode') {
+      // slots on: the CodeLens offers Preview, Armed and Selected; off: just Preview
+      if (!!this.context.workspaceState.get(SLOTS_KEY) !== !!m.slots) {
+        await this.context.workspaceState.update(SLOTS_KEY, !!m.slots);
+        if (lensEmitter) lensEmitter.fire();
+      }
+      return;
+    }
     if (m.type === 'image') {
       let data = null;
       try { const hit = this.root && HUD.findImage(this.root, m.path); if (hit) data = fs.readFileSync(hit).toString('base64'); } catch (e) { /* not found */ }
@@ -243,12 +253,6 @@ function clientEntryForDoc(doc) {
   if (!doc || doc.uri.scheme !== 'file' || !/\.res$/i.test(doc.uri.fsPath)) return null;
   const ws = vscode.workspace.getWorkspaceFolder(doc.uri);
   try { return HUD.clientEntryFor(doc.uri.fsPath, ws && ws.uri.fsPath, readText); } catch (e) { return null; }
-}
-
-// The border block under the editor's cursor, if any
-function borderUnderCursor(editor) {
-  if (!editor) return null;
-  return HUD.borderAt(editor.document.getText(), editor.document.offsetAt(editor.selection.active));
 }
 
 // Open a file (or the built-in SourceSchemeBase.res) at a character offset.
@@ -301,7 +305,7 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openPreview', open));
 
   // ClientScheme border preview: the editor title button, and the CodeLens above each border
-  const openBorders = async (uri, name) => {
+  const openBorders = async (uri, name, slot) => {
     let entry = null;
     const editor = vscode.window.activeTextEditor;
     if (typeof uri === 'string') uri = vscode.Uri.file(uri);
@@ -314,16 +318,15 @@ function activate(context) {
       const hits = await vscode.workspace.findFiles('**/[rR][eE][sS][oO][uU][rR][cC][eE]/[cC][lL][iI][eE][nN][tT][sS][cC][hH][eE][mM][eE].[rR][eE][sS]', '**/node_modules/**', 1);
       entry = hits.length ? hits[0].fsPath : null;
     }
-    if (!name && editor && entry && clientEntryForDoc(editor.document) === entry) name = borderUnderCursor(editor);
-    if (borders) { borders.panel.reveal(vscode.ViewColumn.Beside, true); borders.setEntry(entry); borders.show(name); return; }
+    if (borders) { borders.panel.reveal(vscode.ViewColumn.Beside, true); borders.setEntry(entry); borders.show(name, slot); return; }
     const panel = vscode.window.createWebviewPanel(BORDER_VIEW, 'Border Preview',
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, retainContextWhenHidden: true });
     borders = new BorderPreview(context, panel, entry);
-    borders.show(name);
+    borders.show(name, slot);
     if (!entry) vscode.window.showInformationMessage('Open a HUD folder that contains resource/clientscheme.res to preview its borders.');
   };
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openBorderPreview', uri => openBorders(uri)));
-  context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.previewBorder', (fsPath, name) => openBorders(fsPath, name)));
+  context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.previewBorder', (fsPath, name, slot) => openBorders(fsPath, name, slot)));
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(BORDER_VIEW, {
     async deserializeWebviewPanel(panel) {
       const editor = vscode.window.activeTextEditor;
@@ -335,14 +338,16 @@ function activate(context) {
       borders = new BorderPreview(context, panel, entry);
     },
   }));
-  const lensEmitter = new vscode.EventEmitter();
+  lensEmitter = new vscode.EventEmitter();
   context.subscriptions.push(lensEmitter, vscode.languages.registerCodeLensProvider({ scheme: 'file', pattern: '**/*.[rR][eE][sS]' }, {
     onDidChangeCodeLenses: lensEmitter.event,
     provideCodeLenses(doc) {
       if (!clientEntryForDoc(doc)) return [];
-      return HUD.bordersIn(doc.getText()).map(b => {
-        const pos = doc.positionAt(b.start);
-        return new vscode.CodeLens(new vscode.Range(pos, pos), { title: 'Preview border', command: 'tf2SourceScheme.previewBorder', arguments: [doc.uri.fsPath, b.name] });
+      const links = context.workspaceState.get(SLOTS_KEY) ? [['Preview', 0], ['Armed', 1], ['Selected', 2]] : [['Preview', 0]];
+      const tips = ['Show this border (border_default)', 'Use this border for border_armed (hover)', 'Use this border for border_selected (pressed)'];
+      return HUD.bordersIn(doc.getText()).flatMap(b => {
+        const pos = doc.positionAt(b.start), range = new vscode.Range(pos, pos);
+        return links.map(([title, slot]) => new vscode.CodeLens(range, { title, tooltip: tips[slot], command: 'tf2SourceScheme.previewBorder', arguments: [doc.uri.fsPath, b.name, slot] }));
       });
     },
   }));
@@ -360,21 +365,9 @@ function activate(context) {
     updateContext();
     if (!borders || !editor) return;
     const entry = clientEntryForDoc(editor.document);
-    if (entry) { borders.setEntry(entry); borders.show(borderUnderCursor(editor)); }
+    if (entry) borders.setEntry(entry);
   }));
   context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(() => { updateContext(); lensEmitter.fire(); }));
-  // the border under the cursor fills the selected slot
-  let lastCursor = null;
-  context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
-    if (!borders || e.textEditor !== vscode.window.activeTextEditor) return;
-    if (!borders.watched.has(path.resolve(e.textEditor.document.uri.fsPath).toLowerCase())) return;
-    const name = borderUnderCursor(e.textEditor);
-    const key = e.textEditor.document.uri.toString() + '|' + name;
-    if (!name || key === lastCursor) { if (!name) lastCursor = null; return; }
-    lastCursor = key;
-    borders.show(name);
-  }));
-
   // right-click menu in the preview (package.json "webview/context")
   const toPreview = m => () => { if (current) current.panel.webview.postMessage(m); };
   for (const [cmd, m] of [

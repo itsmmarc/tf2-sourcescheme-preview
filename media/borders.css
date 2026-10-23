@@ -1,51 +1,57 @@
 /* ClientScheme border preview (borders.js). Shares webview.css for the
    toolbar, sidebar and theme colors. */
-.bbar { align-items: flex-end; }
-.slots { display: flex; flex-wrap: wrap; gap: 8px; }
-.slot { display: grid; gap: 3px; padding: 4px 6px 6px; border: 1px solid transparent; border-radius: 4px; width: 210px; }
-.slot.on { border-color: var(--focus); background: color-mix(in srgb, var(--focus) 10%, transparent); }
-.slot.flash { animation: slotflash .6s ease-out; }
-@keyframes slotflash { from { background: color-mix(in srgb, var(--focus) 35%, transparent); } }
-.slab { display: flex; gap: 6px; align-items: baseline; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; }
-.slab code { font-family: var(--mono); font-size: 12px; }
-.slab .muted { overflow: hidden; text-overflow: ellipsis; }
-.slab .dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--muted); flex: none; align-self: center; }
-.slot.on .dot { background: var(--focus); border-color: var(--focus); }
-.slot.showing .slab code { color: var(--pick); }
 
+/* slots, in the side panel */
+.slotcard { display: grid; gap: 4px; padding: 8px 14px 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.slotcard.slots { cursor: pointer; }
+.slotcard.slots:hover { background: var(--hover); }
+.slotcard.on { box-shadow: inset 2px 0 0 var(--focus); background: color-mix(in srgb, var(--focus) 8%, transparent); }
+.slotcard.flash { animation: slotflash .6s ease-out; }
+@keyframes slotflash { from { background: color-mix(in srgb, var(--focus) 30%, transparent); } }
+.slotcard .role b { display: inline-flex; gap: 6px; align-items: center; }
+.slotcard .dot { display: none; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--muted); flex: none; }
+.slotcard.slots .dot { display: inline-block; }
+.slotcard.on .dot { background: var(--focus); border-color: var(--focus); }
+.slotcard.now .sname { color: var(--pick); }
+.sdetail { display: grid; gap: 2px; }
+
+/* size */
+.sizes { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 2px 14px 6px; font-size: 12px; }
+.sizes label { display: inline-flex; gap: 6px; align-items: center; }
+.num { width: 64px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--line));
+  border-radius: 2px; padding: 2px 4px; font-family: var(--mono); font-size: 12px; outline: none; }
+.num:focus { border-color: var(--focus); }
+
+/* searchable dropdowns */
 .combo { position: relative; display: flex; }
-.cin, .tin { flex: 1; min-width: 0; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--line));
+.bgcombo { width: 180px; }
+.cin { flex: 1; min-width: 0; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--line));
   border-radius: 2px 0 0 2px; padding: 3px 6px; font-family: var(--mono); font-size: 12px; outline: none; }
-.cin:focus, .tin:focus { border-color: var(--focus); }
-.cin.bad, .tin.bad { border-color: var(--err); }
-.cin::placeholder, .tin::placeholder { color: var(--vscode-input-placeholderForeground, var(--muted)); font-style: italic; }
-.tin { border-radius: 2px; width: 130px; flex: none; }
+.cin:focus { border-color: var(--focus); }
+.cin.bad { border-color: var(--err); }
+.cin::placeholder { color: var(--vscode-input-placeholderForeground, var(--muted)); font-style: italic; }
 .carr { width: 22px; flex: none; border: 1px solid var(--vscode-input-border, var(--line)); border-left: 0; border-radius: 0 2px 2px 0; background: var(--vscode-input-background); color: var(--muted); cursor: pointer; padding: 0; }
 .carr:hover { color: var(--fg); }
 .clist { position: absolute; z-index: 40; top: 100%; left: 0; right: 0; margin: 2px 0 0; padding: 2px 0; list-style: none; max-height: 300px; overflow: auto;
   background: var(--vscode-dropdown-background, var(--vscode-editorWidget-background)); color: var(--vscode-dropdown-foreground, var(--fg));
-  border: 1px solid var(--vscode-dropdown-border, var(--line)); border-radius: 3px; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); min-width: 260px; }
+  border: 1px solid var(--vscode-dropdown-border, var(--line)); border-radius: 3px; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); min-width: 240px; }
 .clist li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 8px; cursor: pointer; font-size: 12px; white-space: nowrap; }
-.clist li .n { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; }
+.clist li .n { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; display: inline-flex; gap: 6px; align-items: center; }
+.clist li .n .sw { width: 12px; height: 12px; }
 .clist li .w { color: var(--muted); overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 45%; }
 .clist li.none .n { font-style: italic; font-family: inherit; }
 .clist li.act { background: var(--vscode-list-activeSelectionBackground, var(--hover)); color: var(--vscode-list-activeSelectionForeground, var(--fg)); }
 .clist li.act .w { color: inherit; opacity: .8; }
 .clist li:not(.act):hover { background: var(--hover); }
-.clist li.empty { color: var(--muted); cursor: default; }
+.clist li.empty { color: var(--muted); cursor: default; white-space: normal; }
 .clist mark { background: none; color: var(--vscode-list-highlightForeground, var(--link)); font-weight: 600; }
 
-/* the stage: a checkerboard so translucent borders and backgrounds show */
+/* the stage */
 .bstage { padding: 40px; width: max-content; min-width: 100%; box-sizing: border-box; }
-#stagewrap { background: repeating-conic-gradient(#2b2b2b 0 25%, #333 0 50%) 0 0 / 16px 16px; }
 .bpanel { position: relative; box-sizing: border-box; cursor: default; touch-action: none; }
+.binset { position: absolute; z-index: 1; pointer-events: none; outline: 1px dashed var(--pick); outline-offset: -1px; }
 .bgrip { position: absolute; right: -6px; bottom: -6px; width: 12px; height: 12px; cursor: nwse-resize; z-index: 2;
   background: linear-gradient(135deg, transparent 0 45%, var(--pick) 45% 55%, transparent 55% 65%, var(--pick) 65% 75%, transparent 75%); opacity: .8; }
 .bgrip:hover { opacity: 1; }
-.dims { margin-top: 14px; display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); font-size: 12px; color: #ddd; zoom: calc(1 / var(--z, 1)); }
-.dims .muted { color: #aaa; }
-.dims .bad { color: #ff7b7b; }
 body.pv-resizing, body.pv-resizing * { user-select: none !important; }
 body.pv-resizing.rs-se * { cursor: nwse-resize !important; }
-
-.bslot.now { box-shadow: inset 2px 0 0 var(--pick); }

@@ -28,12 +28,13 @@ Settings your HUD doesn't set are listed too, with the built-in default the game
 
 There's also a preview for the borders in your HUD's `resource/clientscheme.res`, including borders in files it `#base`s (a separate `borders.res`, say).
 
-- **Open it** with the square icon in the editor title bar, which shows on `clientscheme.res` and every file it `#base`s, or with the **Preview border** link above each border definition. **TF2: Open ClientScheme Border Preview** in the Command Palette works too.
-- **The panel has three slots**, like a button's border keys: `border_default`, `border_armed` (shown while you hover the panel) and `border_selected` (shown while you hold the mouse down on it). These follow TF2's `CExButton`: a key that isn't set falls back to `border_default`, then to the scheme's `ButtonBorder` (or `ButtonDepressedBorder` while pressed). The sidebar shows which border each state ends up with and why.
-- **Choosing borders:** the highlighted slot follows your cursor. Put the cursor anywhere inside a border's block and it shows in that slot. Click a slot to make it the highlighted one. Each slot's dropdown is also a search box: type part of a name to filter every border in the `#base` chain, then use the arrow keys and Enter, or click.
-- **Resize** the panel by dragging its bottom-right corner. Its `wide` and `tall` are shown in HUD units (scaled by screen height ÷ 480, as HUD panels are); double-click the corner to reset it.
-- **bgcolor** sets the panel's background, as a color name from your scheme or `R G B A`, so translucent borders blend the way they would in-game. **Show inset** outlines the area a border's `inset` leaves for the panel's contents.
-- Colors come from `clientscheme.res` and its `#base` files. Image borders (`scalable_image`) load from your HUD's `materials/vgui` folder and are drawn the same way as in the SourceScheme preview. Like that preview, it updates as you type.
+- **Open it** with the square icon in the editor title bar, which shows on `clientscheme.res` and every file it `#base`s, or with the **Preview** link above any border definition. **TF2: Open ClientScheme Border Preview** in the Command Palette works too.
+- **One border by default.** Pick it with a **Preview** link, or from the dropdown in the side panel. The dropdown is also a search box: type part of a name, then use the arrow keys and Enter, or click.
+- **Slots:** tick **Slots** to preview a button's `border_default`, `border_armed` (shown while you hover the panel) and `border_selected` (shown while you hold the mouse down on it). Each border then has **Preview · Armed · Selected** links. Click a slot to make the panel show it when idle. These follow TF2's `CExButton`: a key that isn't set falls back to `border_default`, then to the scheme's `ButtonBorder` (or `ButtonDepressedBorder` while pressed).
+- **Size:** drag the panel's bottom-right corner, or type `wide` and `tall` in the side panel. They're HUD units (scaled by screen height ÷ 480, as HUD panels are); double-click the corner to reset.
+- **bgcolor** sets the panel's background: pick a color from your scheme or type `R G B A`, so translucent borders blend the way they would in-game. **Show inset** outlines the area a border's `inset` leaves for the panel's contents.
+- **Image borders** (`scalable_image`) load from your HUD's `materials/vgui` folder, drawn like the game's: the edges and centre stretch the line where the corners meet, so a texture that's all corners still fills the panel, and `color` tints the texture.
+- Colors come from `clientscheme.res` and its `#base` files. Like the SourceScheme preview, it updates as you type, and Ctrl + scroll zooms.
 
 ## What it reads
 

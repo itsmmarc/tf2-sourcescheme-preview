@@ -138,7 +138,7 @@
       const ints = (v, n) => { const a = String(v || '').trim().split(/\s+/).map(x => parseInt(x, 10) || 0); while (a.length < n) a.push(0); return a.slice(0, n); };
       const inset = ints(val('inset'), 4);
       if (type === 'image' || type === 'scalable_image') {
-        return { kind: 'image', name: m.key, via, inset, scalable: type === 'scalable_image', image: val('image') || '',
+        return { kind: 'image', name: m.key, via, inset, scalable: type === 'scalable_image', image: val('image') || '', color: val('color') || '',
           srcW: +(val('src_corner_width') || 0), srcH: +(val('src_corner_height') || 0),
           drawW: +(val('draw_corner_width') || 0), drawH: +(val('draw_corner_height') || 0), entry: m };
       }

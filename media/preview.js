@@ -375,7 +375,8 @@
       if (!b) { out.push(`.pv-stage .${cls}{}`); continue; }
       if (b.kind === 'image') {
         const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
-        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres)}}`);
+        const tint = b.color ? S.resolve(b.color) : null;
+        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres, tint && tint.ok ? tint.rgba : null)}}`);
         continue;
       }
       // lines: painted by a ::after over the control and its children, as the game
@@ -628,15 +629,56 @@
   }
 
   // An image border as the body of a ::after rule, or a dashed placeholder while
-  // the texture isn't loaded (or isn't in the HUD)
-  function imageBorderCss(b, url, yres) {
-    if (!url) return 'content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px';
+  // the texture isn't loaded (or isn't in the HUD). img is a decoded texture
+  // ({ width, height, rgba }); tint is the border's "color" as rgba, or null.
+  function imageBorderCss(b, img, yres, tint) {
+    if (!img) return 'content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px';
     // draw_corner_* use the engine's classic 480-line proportional scale,
     // not the 1080 one: 4 draws 12px at 1440p (measured in-game)
-    const sw = b.srcW || 0, sh = b.srcH || 0;
+    const sw = Math.max(0, b.srcW || 0), sh = Math.max(0, b.srcH || 0);
     const dw = Math.floor((b.drawW || sw) * yres / 480 + 1e-6), dh = Math.floor((b.drawH || sh) * yres / 480 + 1e-6);
     return `content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
-      `border-width:${dh}px ${dw}px;border-image:url(${url}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;`;
+      `border-width:${dh}px ${dw}px;border-image:url(${nineSlice(img, sw, sh, tint)}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;`;
+  }
+
+  // The texture rearranged into the nine pieces the game draws, as a data URL.
+  // ScalableImagePanel::PaintBackground (the same scheme as the border) maps
+  // each piece's UVs from the source corners: the middle column spans
+  // max(1 - 2 * corner, 0) of the texture, so a texture that is all corners
+  // (64px wide, 32px corners) still gets edges and a centre, stretched from
+  // the line where the corners meet, sampled bilinearly. The draw color tints
+  // the texture by multiplying it (vertex color).
+  function nineSlice(img, sw, sh, tint) {
+    const key = [sw, sh, tint ? tint.join(' ') : ''].join('|');
+    img.cache = img.cache || new Map();
+    if (img.cache.has(key)) return img.cache.get(key);
+    const W = img.width, H = img.height, src = img.rgba;
+    // source coordinates (texel units) for each output column or row
+    const axis = (n, c) => {
+      const mid = n - 2 * c, out = [];
+      for (let i = 0; i < c; i++) out.push([i, i]);
+      if (mid > 0) for (let i = c; i < c + mid; i++) out.push([i, i]);
+      else out.push([c - 1, c]); // a zero-width middle samples between the corners
+      const right = c + Math.max(mid, 0);
+      for (let i = 0; i < c; i++) out.push([right + i, right + i]);
+      return out.map(([a, z]) => [Math.max(0, Math.min(n - 1, a)), Math.max(0, Math.min(n - 1, z))]);
+    };
+    const xs = axis(W, Math.min(sw, W)), ys = axis(H, Math.min(sh, H));
+    const ow = xs.length, oh = ys.length, out = new Uint8ClampedArray(ow * oh * 4);
+    const t = tint ? tint.map(v => v / 255) : [1, 1, 1, 1];
+    for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+      const o = (y * ow + x) * 4;
+      for (let c = 0; c < 4; c++) {
+        let v = 0;
+        for (const sy of ys[y]) for (const sx of xs[x]) v += src[(sy * W + sx) * 4 + c];
+        out[o + c] = v / 4 * t[c];
+      }
+    }
+    const cv = document.createElement('canvas'); cv.width = ow; cv.height = oh;
+    cv.getContext('2d').putImageData(new ImageData(out, ow, oh), 0, 0);
+    const url = cv.toDataURL();
+    img.cache.set(key, url);
+    return url;
   }
 
   // ---------- markup helpers ----------
