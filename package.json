@@ -1,8 +1,8 @@
 {
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
-	"description": "Live preview of a TF2 HUD's sourcescheme.res: server browser, options dialog and console, with every setting behind each element.",
-	"version": "0.5.5",
+	"description": "Live preview of a TF2 HUD's sourcescheme.res (server browser, options dialog and console, with every setting behind each element) and of the borders in its clientscheme.res.",
+	"version": "0.6.5",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
@@ -23,7 +23,10 @@
 	],
 	"main": "./extension.js",
 	"activationEvents": [
-		"onWebviewPanel:tf2SourceScheme.preview"
+		"onWebviewPanel:tf2SourceScheme.preview",
+		"onWebviewPanel:tf2SourceScheme.borderPreview",
+		"workspaceContains:**/resource/clientscheme.res",
+		"onStartupFinished"
 	],
 	"contributes": {
 		"commands": [
@@ -32,6 +35,17 @@
 				"title": "Open SourceScheme Preview",
 				"category": "TF2",
 				"icon": "$(open-preview)"
+			},
+			{
+				"command": "tf2SourceScheme.openBorderPreview",
+				"title": "Open ClientScheme Border Preview",
+				"category": "TF2",
+				"icon": "$(primitive-square)"
+			},
+			{
+				"command": "tf2SourceScheme.previewBorder",
+				"title": "Preview Border",
+				"category": "TF2"
 			},
 			{
 				"command": "tf2SourceScheme.zoomIn",
@@ -66,6 +80,11 @@
 				{
 					"command": "tf2SourceScheme.openPreview",
 					"when": "resourceExtname =~ /^\\.res$/i",
+					"group": "navigation"
+				},
+				{
+					"command": "tf2SourceScheme.openBorderPreview",
+					"when": "tf2ClientSchemeFile",
 					"group": "navigation"
 				}
 			],
@@ -123,12 +142,24 @@
 				{
 					"command": "tf2SourceScheme.resetWindowSize",
 					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.previewBorder",
+					"when": "false"
 				}
 			]
 		},
 		"configuration": {
 			"title": "TF2 SourceScheme Preview",
 			"properties": {
+				"tf2SourceScheme.teamFortress2Folder": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Path to your `Team Fortress 2` folder (the one holding `tf` and `hl2`), so image borders can use the game's own materials from its VPKs. Leave empty to find it automatically: from `#vscode-vdf.teamFortress2Folder#` if set, a folder above your HUD, or your Steam libraries.",
+					"examples": [
+						"C:/Program Files (x86)/Steam/steamapps/common/Team Fortress 2"
+					]
+				},
 				"tf2SourceScheme.screenHeight": {
 					"type": "number",
 					"default": 1440,

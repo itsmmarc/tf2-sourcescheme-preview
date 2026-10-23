@@ -87,7 +87,7 @@
     try {
       const bin = atob(m.data), buf = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-      S.images.set(m.path.toLowerCase(), window.VTF.toDataURL(window.VTF.decode(buf.buffer)));
+      S.images.set(m.path.toLowerCase(), window.VTF.decode(buf.buffer));
       refresh();
     } catch (e) { /* unreadable texture: keep the dashed placeholder */ }
   }
@@ -320,15 +320,17 @@
     const b = sc.border(name);
     const chain = via.map(v => defLink(v.node, v.key)).concat(defLink(m.node, m.key)).join(' <span class="arrow">→</span> ');
     let detail = '';
-    if (b.kind === 'image') detail = `<div class="val"><span class="muted">image</span> <code>${esc(b.image)}</code>${S.images.get((b.image || '').toLowerCase()) ? '' : ' <span class="muted">(texture not found in the HUD folder)</span>'}</div>`;
+    if (b.kind === 'image') detail = `<div class="val"><span class="muted">image</span> <code>${esc(b.image)}</code>${S.images.get((b.image || '').toLowerCase()) ? '' : ' <span class="muted">(texture not found in the HUD or the game\'s files)</span>'}</div>`;
+    if (b.kind === 'image' && b.color) { const r = sc.resolve(b.color); detail += `<div class="val"><span class="line">${sw(r.ok ? r.rgba : null)}<span class="muted">color</span> <code>${esc(b.color)}</code>${r.ok ? '' : ' <span class="bad">undefined, so the image isn\'t tinted</span>'}</span></div>`; }
     else {
       const sides = ['left', 'top', 'right', 'bottom'].map(side => {
         const lines = b.sides[side] || [];
         if (!lines.length) return '';
-        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}</span>`).join('')}</div>`;
+        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
       }).join('');
       detail = (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>') + (b.backgroundtype === 2 ? '<div class="val muted">backgroundtype 2: rounded corners</div>' : '');
     }
+    if (b.inset.some(v => v)) detail += `<div class="val muted">inset ${b.inset.join(' ')}: moves the text in, the lines stay put</div>`;
     return `<div class="item"><span class="sw num">▢</span><div class="body"><div class="role"><b>${esc(role)}</b>${loc((via[0] || m).node)}</div><div class="key">${chain}</div>${detail}</div></div>`;
   }
 

@@ -2,7 +2,7 @@
 import json, pathlib, zipfile
 root = pathlib.Path(__file__).parent
 pkg = json.loads((root / 'package.json').read_text())
-files = ['package.json', 'extension.js', 'README.md', 'LICENSE', 'lib/hud.js'] + sorted(str(p.relative_to(root)) for p in (root / 'media').iterdir())
+files = ['package.json', 'extension.js', 'README.md', 'LICENSE', 'lib/hud.js', 'lib/vpk.js'] + sorted(str(p.relative_to(root)) for p in (root / 'media').iterdir())
 manifest = f'''<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>

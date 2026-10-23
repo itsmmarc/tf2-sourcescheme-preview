@@ -375,26 +375,44 @@
       if (!b) { out.push(`.pv-stage .${cls}{}`); continue; }
       if (b.kind === 'image') {
         const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
-        if (url) {
-          const sw = b.srcW || 0, sh = b.srcH || 0;
-          out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
-            `border-width:${b.drawH || sh}px ${b.drawW || sw}px;border-image:url(${url}) ${sh} ${sw} fill / ${b.drawH || sh}px ${b.drawW || sw}px stretch;}`);
-        } else {
-          out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px}`);
-        }
+        const tint = b.color ? S.resolve(b.color) : null;
+        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`);
         continue;
       }
-      const sh = [];
-      const dir = { left: [1, 0], right: [-1, 0], top: [0, 1], bottom: [0, -1] };
-      const max = Math.max(...Object.values(b.sides).map(l => l.length), 0);
-      for (let i = 0; i < max; i++) for (const side of ['left', 'top', 'right', 'bottom']) {
-        const ln = b.sides[side][i];
-        if (!ln || ln.rgba[3] === 0) continue;
-        const [dx, dy] = dir[side];
-        sh.push(`inset ${dx * (i + 1)}px ${dy * (i + 1)}px 0 0 ${rgbaCss(over(ln.rgba, F))}`);
-      }
-      out.push(`.pv-stage .${cls}{box-shadow:${sh.join(',') || 'none'};${b.backgroundtype === 2 ? 'border-radius:7px;' : ''}}`);
+      // lines: painted by a ::after over the control and its children, as the game
+      // paints borders last (text boxes can't have one, so they get backgrounds)
+      out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit}`);
+      if (b.backgroundtype === 2) out.push(`.pv-stage .${cls}{border-radius:7px}`);
     }
+    // a border's inset moves the text inside buttons, combo boxes and text boxes
+    // (Panel::PaintTraverse paints contents with the inset, the border and
+    // background without); a transparent CSS border does the same. Not on tabs:
+    // their width comes from the text alone, and a CSS border would widen them.
+    for (const name of BORDERS) {
+      const b = S.border(name);
+      if (!b) continue;
+      const [l, t, r, bt] = b.inset.map(v => Math.max(0, v));
+      if (!(l || t || r || bt)) continue;
+      const cls = bcls(name);
+      out.push(`.pv-stage .ctl.ab.${cls},.pv-stage input.${cls}{border:solid transparent;border-width:${t}px ${r}px ${bt}px ${l}px}`,
+        `.pv-stage .ctl.ab.${cls}{overflow:clip;overflow-clip-margin:${Math.max(l, t, r, bt)}px}`,
+        `.pv-stage .ctl.ab.${cls}::after{inset:${-t}px ${-r}px ${-bt}px ${-l}px}`);
+    }
+
+    const lined = BORDERS.map(n => [bcls(n), S.border(n)]).filter(([, b]) => b && b.kind === 'lines');
+    for (const [, b] of lined) b.translucent = Object.values(b.sides).some(ls => ls.some(l => l.rgba[3] > 0 && l.rgba[3] < 255));
+    // the painted borders are long data URLs, so each one is written once, as a
+    // custom property on the stage, and the rules refer to it
+    const painted = new Map(), vars = [];
+    const lineCss = (cls, b, under) => {
+      const key = cls + '|' + (under || []).join();
+      if (!painted.has(key)) {
+        const ly = lineLayers(b, under);
+        if (ly) vars.push(`--${cls}-${vars.length}:${ly.img}`);
+        painted.set(key, ly ? `background-image:var(--${cls}-${vars.length - 1});${ly.geo}` : 'background-image:none;');
+      }
+      return painted.get(key);
+    };
 
     const inset = this.num('Menu.TextInset', 6);
     // the frame itself sits on whatever is behind the game UI; leave its own alpha
@@ -403,6 +421,20 @@
     const rules = (pre, G, focused) => {
       const t = (sel, body) => out.push(sel.split(',').map(x => `.pv-stage ${pre}${x.trim()}`).join(',') + `{${body}}`);
       const bg = (k, under) => { const c = O(k, under); return { c, css: rgbaCss(c) }; };
+      // line borders, blended over what the control paints under them; opaque
+      // lines look the same over anything, so only translucent ones need more
+      // than the window-background version
+      const used = ctls => new Set(ctls.flatMap(c => CONTROLS[c].borders.map(x => bcls(x[0]))));
+      const bd = (sel, under, ...ctls) => {
+        const u = used(ctls);
+        for (const [cls, b] of lined) if (b.translucent && u.has(cls))
+          t(sel.split(',').map(x => `${x.trim()}.${cls}::after`).join(','), lineCss(cls, b, under));
+      };
+      const bdInput = (sel, under) => {
+        const u = used(['entry', 'centry']);
+        for (const [cls, b] of lined) if (u.has(cls)) t(`${sel}.${cls}`, lineCss(cls, b, under) + 'background-origin:border-box;');
+      };
+      for (const [cls, b] of lined) t(`.${cls}::after`, lineCss(cls, b, G));
       // title bar and close button
       const tb = bg(focused ? 'FrameTitleBar.BgColor' : 'FrameTitleBar.DisabledBgColor', G);
       t('.vg-title', `color:${css(focused ? 'FrameTitleBar.TextColor' : 'FrameTitleBar.DisabledTextColor', tb.c)};background:${tb.css};`);
@@ -416,6 +448,8 @@
       t('.vg-tab.on', `color:${css('PropertySheet.SelectedTextColor', tab.c)};`);
       t('.vg-tab:active', `background:${tabP.css};color:${css('PropertySheet.TextColor', tabP.c)};`);
       t('.vg-tab.on:active', `color:${css('PropertySheet.SelectedTextColor', tabP.c)};`);
+      bd('.vg-tab', tab.c, 'tab'); bd('.vg-tab:active', tabP.c, 'tab');
+      bd('.vg-tbtn', cb.c, 'titlebtn');
       // buttons, over the window or (column headers) over the list
       const buttons = (sel, U) => {
         const n = bg('Button.BgColor', U), h = bg('Button.ArmedBgColor', U), d = bg('Button.DepressedBgColor', U);
@@ -426,6 +460,8 @@
         t(S_(':active') + ',' + S_('.down') + ',' + S_('.down:hover'), `color:${css('Button.DepressedTextColor', d.c)};background:${d.css};`);
         t(S_('.toggle.down') + ',' + S_('.toggle.down:hover'), `color:${css('ToggleButton.SelectedTextColor', d.c)};`);
         t(S_('.dis') + ',' + S_('.dis:hover') + ',' + S_('.dis:active'), `color:${css('Label.DisabledFgColor1', n.c)};background:${n.css};text-shadow:1px 1px 0 ${css('Label.DisabledFgColor2', n.c)};`);
+        bd(S_('') + ',' + S_('.dis') + ',' + S_('.dis:hover') + ',' + S_('.dis:active'), n.c, 'button');
+        bd(S_(':hover'), h.c, 'button'); bd(S_(':active') + ',' + S_('.down') + ',' + S_('.down:hover'), d.c, 'button');
       };
       buttons('.vg-btn', G);
       t('.vg-url', `color:${css('Button.TextColor', G)};`);
@@ -439,6 +475,7 @@
       const list = bg('ListPanel.BgColor', G);
       const sel = bg(focused ? 'ListPanel.SelectedBgColor' : 'ListPanel.SelectedOutOfFocusBgColor', list.c);
       t('.vg-list', `background:${list.css};`);
+      bd('.vg-list', list.c, 'list');
       t('.vg-list .empty', `color:${css('ListPanel.EmptyListInfoTextColor', list.c)};`);
       t('.vg-row', `color:${css('ListPanel.TextColor', list.c)};`);
       t('.vg-row.sel', `color:${css('ListPanel.SelectedTextColor', sel.c)};background:${sel.css};`);
@@ -449,6 +486,7 @@
       const ssel = bg(focused ? 'SectionedListPanel.SelectedBgColor' : 'SectionedListPanel.OutOfFocusSelectedBgColor', sl.c);
       const sselT = focused ? 'SectionedListPanel.SelectedTextColor' : 'SectionedListPanel.OutOfFocusSelectedTextColor';
       t('.vg-slist', `background:${sl.css};`);
+      bd('.vg-slist', sl.c, 'slist');
       t('.vg-shead', `color:${css('SectionedListPanel.HeaderTextColor', sh.c)};background:${sh.css};`);
       t('.vg-shead::after', `background:${css('SectionedListPanel.DividerColor', sh.c)};`);
       t('.vg-srow', `color:${css('SectionedListPanel.TextColor', sl.c)};`);
@@ -457,6 +495,7 @@
       // menus (a menu item paints the menu color again on top of the menu)
       const menu = bg('Menu.BgColor', G), mi = bg('Menu.BgColor', menu.c), mia = bg('Menu.ArmedBgColor', menu.c);
       t('.vg-menu', `background:${menu.css};`);
+      bd('.vg-menu', menu.c, 'menu');
       t('.vg-mi', `color:${css('Menu.TextColor', mi.c)};background:${mi.css};padding:0 ${inset + 6}px 0 ${inset}px;`);
       t('.vg-mi:hover,.vg-mi.armed', `color:${css('Menu.ArmedTextColor', mia.c)};background:${mia.css};`);
       t('.vg-mdiv', `background:${css('Menu.SeparatorColor', menu.c)};`);
@@ -466,12 +505,14 @@
       // scroll bars (inside lists and the console)
       const scroll = (selPre, U) => {
         const tr = bg('ScrollBarSlider.BgColor', U);
-        const b = bg('ScrollBarButton.BgColor', tr.c), bh = bg('ScrollBarButton.ArmedBgColor', tr.c), bd = bg('ScrollBarButton.DepressedBgColor', tr.c);
+        const b = bg('ScrollBarButton.BgColor', tr.c), bh = bg('ScrollBarButton.ArmedBgColor', tr.c), bd_ = bg('ScrollBarButton.DepressedBgColor', tr.c);
         t(`${selPre} .vg-sb`, `background:${tr.css};`);
         t(`${selPre} .vg-sbb`, `color:${css('ScrollBarButton.FgColor', b.c)};background:${b.css};`);
         t(`${selPre} .vg-sbb:hover`, `color:${css('ScrollBarButton.ArmedFgColor', bh.c)};background:${bh.css};`);
-        t(`${selPre} .vg-sbb:active`, `color:${css('ScrollBarButton.DepressedFgColor', bd.c)};background:${bd.css};`);
+        t(`${selPre} .vg-sbb:active`, `color:${css('ScrollBarButton.DepressedFgColor', bd.c)};background:${bd_.css};`);
         t(`${selPre} .vg-thumb`, `background:${css('ScrollBarSlider.FgColor', tr.c)};`);
+        bd(`${selPre} .vg-sbb`, b.c, 'sbbtn'); bd(`${selPre} .vg-sbb:hover`, bh.c, 'sbbtn'); bd(`${selPre} .vg-sbb:active`, bd_.c, 'sbbtn');
+        bd(`${selPre} .vg-thumb`, O('ScrollBarSlider.FgColor', tr.c), 'sbslider', 'button');
       };
       scroll('.vg-list', list.c); scroll('.vg-slist', sl.c);
       const rich = bg('RichText.BgColor', G);
@@ -495,9 +536,12 @@
       t('.vg-combo .arr', `color:${css('ComboBoxButton.ArrowColor', arr.c)};background:${arr.css};`);
       t('.vg-combo:not(.fixed):hover .arr,.vg-combo.open .arr', `color:${css('ComboBoxButton.ArmedArrowColor', arr.c)};`);
       t('.vg-combo.dis .arr', `background:${arrD.css};`);
+      bd('.vg-combo', te.c, 'combo'); bd('.vg-combo.dis', teD.c, 'combo');
+      bdInput('input.vg-entry', te.c); bdInput('input.vg-entry:disabled', teD.c);
       // sliders
       const track = bg('Slider.TrackColor', G);
       t('.vg-slider .track', `background:${track.css};`);
+      bd('.vg-slider .track', track.c, 'slider');
       t('.vg-slider .nob', `background:${css('Slider.NobColor', track.c)};`);
       t('.vg-slider .ticks i', `background:${css('Slider.TextColor', G)};`);
       t('.vg-slider .ends', `color:${css('Slider.TextColor', G)};`);
@@ -506,12 +550,14 @@
       // console
       const rs = bg('RichText.SelectedBgColor', rich.c);
       t('.vg-rich', `background:${rich.css};color:${css('Console.TextColor', rich.c)};`);
+      bd('.vg-rich', rich.c, 'console');
       t('.vg-rich .dev', `color:${css('Console.DevTextColor', rich.c)};`);
       t('.vg-rich .red', `color:rgb(255,90,90);`);
       t('.vg-rich .sel,.vg-rich ::selection', `color:${css('RichText.SelectedTextColor', rs.c)};background:${rs.css};`);
     };
     rules('', F, true);
     rules('.vg-frame.out ', Fo, false);
+    if (vars.length) out.push(`.pv-stage{${vars.join(';')}}`);
     return out.join('\n');
   };
 
@@ -527,6 +573,114 @@
     return [ch(0), ch(1), ch(2), Math.round(oa * 255)];
   }
   Preview.over = over;
+
+  // Border::Paint: every line is a 1px rect in screen pixels (never scaled).
+  // Line i of a side sits i px in from that edge and runs the side's whole
+  // length, less its "offset" (start end): left and right lines run top to
+  // bottom, top and bottom lines left to right, so lines cross at the corners.
+  // Sides paint left, top, right, then bottom, each line over the ones before.
+  // Away from the corners every row (or column) of a side looks the same, so
+  // this paints a small model of the border, pixel by pixel in linear light
+  // over `under`, and lays it out as nine background pieces (corners fixed,
+  // middles stretched along the sides).
+  const svgUrl = (w, h, rows) => {
+    let r = '';
+    rows.forEach((row, y) => {
+      for (let x = 0; x < w;) {
+        const c = row[x];
+        let e = x + 1;
+        while (e < w && row[e] && c && row[e].join() === c.join()) e++;
+        if (c && c[3]) r += `<rect x='${x}' y='${y}' width='${e - x}' height='1' fill='rgb(${c[0]},${c[1]},${c[2]})'${c[3] < 255 ? ` fill-opacity='${(c[3] / 255).toFixed(3)}'` : ''}/>`;
+        x = e;
+      }
+    });
+    if (!r) return null;
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}' preserveAspectRatio='none' shape-rendering='crispEdges'>${r}</svg>`;
+    return `url("data:image/svg+xml,${svg.replace(/[<>#%]/g, c => encodeURIComponent(c))}")`;
+  };
+  function lineLayers(b, under) {
+    const { left: L, right: R, top: T, bottom: B } = b.sides;
+    const mx = (n, ls, k) => Math.max(n, 0, ...ls.map(l => l[k]));
+    const dl = mx(L.length, [...T, ...B], 'start'), dr = mx(R.length, [...T, ...B], 'end');
+    const dt = mx(T.length, [...L, ...R], 'start'), db = mx(B.length, [...L, ...R], 'end');
+    const w = dl + 1 + dr, h = dt + 1 + db;
+    const px_ = Array.from({ length: h }, () => new Array(w).fill(null));
+    const rect = (x0, y0, x1, y1, c) => {
+      for (let y = Math.max(0, y0); y < Math.min(h, y1); y++)
+        for (let x = Math.max(0, x0); x < Math.min(w, x1); x++) px_[y][x] = over(c, px_[y][x] || under);
+    };
+    const each = (ls, f) => ls.forEach((l, i) => { if (l.rgba[3] > 0) f(l, i); });
+    each(L, (l, i) => rect(i, l.start, i + 1, h - l.end, l.rgba));
+    each(T, (l, i) => rect(l.start, i, w - l.end, i + 1, l.rgba));
+    each(R, (l, i) => rect(w - 1 - i, l.start, w - i, h - l.end, l.rgba));
+    each(B, (l, i) => rect(l.start, h - 1 - i, w - l.end, h - i, l.rgba));
+    // [start, length] of each third of the model, and where its piece goes
+    const cols = [[0, dl, '0', `${dl}px`], [dl, 1, `${dl}px`, `max(0px, 100% - ${dl + dr}px)`], [dl + 1, dr, '100%', `${dr}px`]];
+    const rows = [[0, dt, '0', `${dt}px`], [dt, 1, `${dt}px`, `max(0px, 100% - ${dt + db}px)`], [dt + 1, db, '100%', `${db}px`]];
+    const img = [], pos = [], size = [];
+    rows.forEach(([y, rh, py, sy], j) => cols.forEach(([x, cw, pX, sx], i) => {
+      if (!rh || !cw || (i === 1 && j === 1)) return;
+      const url = svgUrl(cw, rh, px_.slice(y, y + rh).map(r => r.slice(x, x + cw)));
+      if (!url) return;
+      img.push(url); pos.push(`${pX} ${py}`); size.push(`${sx} ${sy}`);
+    }));
+    if (!img.length) return null;
+    return { img: img.join(','), geo: `background-position:${pos.join(',')};background-size:${size.join(',')};background-repeat:no-repeat;` };
+  }
+
+  // An image border as the body of a ::after rule, or a dashed placeholder while
+  // the texture isn't loaded (or isn't in the HUD). img is a decoded texture
+  // ({ width, height, rgba }); tint is the border's "color" as rgba, or null.
+  function imageBorderCss(b, img, yres, tint) {
+    if (!img) return 'content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px';
+    // draw_corner_* use the engine's classic 480-line proportional scale,
+    // not the 1080 one: 4 draws 12px at 1440p (measured in-game)
+    const sw = Math.max(0, b.srcW || 0), sh = Math.max(0, b.srcH || 0);
+    const dw = Math.floor((b.drawW || sw) * yres / 480 + 1e-6), dh = Math.floor((b.drawH || sh) * yres / 480 + 1e-6);
+    return `content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
+      `border-width:${dh}px ${dw}px;border-image:url(${nineSlice(img, sw, sh, tint)}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;`;
+  }
+
+  // The texture rearranged into the nine pieces the game draws, as a data URL.
+  // ScalableImagePanel::PaintBackground (the same scheme as the border) maps
+  // each piece's UVs from the source corners: the middle column spans
+  // max(1 - 2 * corner, 0) of the texture, so a texture that is all corners
+  // (64px wide, 32px corners) still gets edges and a centre, stretched from
+  // the line where the corners meet, sampled bilinearly. The draw color tints
+  // the texture by multiplying it (vertex color); its alpha doesn't apply
+  // (checked in-game).
+  function nineSlice(img, sw, sh, tint) {
+    const key = [sw, sh, tint ? tint.join(' ') : ''].join('|');
+    img.cache = img.cache || new Map();
+    if (img.cache.has(key)) return img.cache.get(key);
+    const W = img.width, H = img.height, src = img.rgba;
+    // source coordinates (texel units) for each output column or row
+    const axis = (n, c) => {
+      const mid = n - 2 * c, out = [];
+      for (let i = 0; i < c; i++) out.push([i, i]);
+      if (mid > 0) for (let i = c; i < c + mid; i++) out.push([i, i]);
+      else out.push([c - 1, c]); // a zero-width middle samples between the corners
+      const right = c + Math.max(mid, 0);
+      for (let i = 0; i < c; i++) out.push([right + i, right + i]);
+      return out.map(([a, z]) => [Math.max(0, Math.min(n - 1, a)), Math.max(0, Math.min(n - 1, z))]);
+    };
+    const xs = axis(W, Math.min(sw, W)), ys = axis(H, Math.min(sh, H));
+    const ow = xs.length, oh = ys.length, out = new Uint8ClampedArray(ow * oh * 4);
+    const t = tint ? tint.map(v => v / 255) : [1, 1, 1, 1];
+    for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+      const o = (y * ow + x) * 4;
+      for (let c = 0; c < 4; c++) {
+        let v = 0;
+        for (const sy of ys[y]) for (const sx of xs[x]) v += src[(sy * W + sx) * 4 + c];
+        out[o + c] = v / 4 * t[c];
+      }
+    }
+    const cv = document.createElement('canvas'); cv.width = ow; cv.height = oh;
+    cv.getContext('2d').putImageData(new ImageData(out, ow, oh), 0, 0);
+    const url = cv.toDataURL();
+    img.cache.set(key, url);
+    return url;
+  }
 
   // ---------- markup helpers ----------
   const U = (c, name, extra) => ` data-c="${c}" data-n="${esc(name)}"${extra || ''}`;
@@ -1075,6 +1229,9 @@
   Preview.tokStatus = tokStatus;
   Preview.stockString = tok => { const lk = String(tok).toLowerCase(); const k = Object.keys(TOK).find(t => TOK[t].toLowerCase() === lk); return k != null ? k : STOCK_FMT[tok]; };
   root.Preview = Preview;
+  // the border painters, for the ClientScheme border preview (borders.js)
+  Preview.imageBorderCss = imageBorderCss;
+  Preview.lineLayers = lineLayers;
   Preview.CONTROLS = CONTROLS;
   Preview.BORDERS = BORDERS;
 })(window);
