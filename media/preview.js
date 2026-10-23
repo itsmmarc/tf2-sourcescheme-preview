@@ -375,16 +375,7 @@
       if (!b) { out.push(`.pv-stage .${cls}{}`); continue; }
       if (b.kind === 'image') {
         const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
-        if (url) {
-          // draw_corner_* use the engine's classic 480-line proportional scale,
-          // not the 1080 one: 4 draws 12px at 1440p (measured in-game)
-          const sw = b.srcW || 0, sh = b.srcH || 0;
-          const dw = Math.floor((b.drawW || sw) * this.yres / 480 + 1e-6), dh = Math.floor((b.drawH || sh) * this.yres / 480 + 1e-6);
-          out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
-            `border-width:${dh}px ${dw}px;border-image:url(${url}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;}`);
-        } else {
-          out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px}`);
-        }
+        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres)}}`);
         continue;
       }
       // lines: painted by a ::after over the control and its children, as the game
@@ -634,6 +625,18 @@
     }));
     if (!img.length) return null;
     return { img: img.join(','), geo: `background-position:${pos.join(',')};background-size:${size.join(',')};background-repeat:no-repeat;` };
+  }
+
+  // An image border as the body of a ::after rule, or a dashed placeholder while
+  // the texture isn't loaded (or isn't in the HUD)
+  function imageBorderCss(b, url, yres) {
+    if (!url) return 'content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed rgba(255,0,255,.8);outline-offset:-1px';
+    // draw_corner_* use the engine's classic 480-line proportional scale,
+    // not the 1080 one: 4 draws 12px at 1440p (measured in-game)
+    const sw = b.srcW || 0, sh = b.srcH || 0;
+    const dw = Math.floor((b.drawW || sw) * yres / 480 + 1e-6), dh = Math.floor((b.drawH || sh) * yres / 480 + 1e-6);
+    return `content:"";position:absolute;inset:0;pointer-events:none;border-style:solid;` +
+      `border-width:${dh}px ${dw}px;border-image:url(${url}) ${sh} ${sw} fill / ${dh}px ${dw}px stretch;`;
   }
 
   // ---------- markup helpers ----------
@@ -1183,6 +1186,9 @@
   Preview.tokStatus = tokStatus;
   Preview.stockString = tok => { const lk = String(tok).toLowerCase(); const k = Object.keys(TOK).find(t => TOK[t].toLowerCase() === lk); return k != null ? k : STOCK_FMT[tok]; };
   root.Preview = Preview;
+  // the border painters, for the ClientScheme border preview (borders.js)
+  Preview.imageBorderCss = imageBorderCss;
+  Preview.lineLayers = lineLayers;
   Preview.CONTROLS = CONTROLS;
   Preview.BORDERS = BORDERS;
 })(window);

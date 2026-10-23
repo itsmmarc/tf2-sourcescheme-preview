@@ -1,8 +1,8 @@
 {
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
-	"description": "Live preview of a TF2 HUD's sourcescheme.res: server browser, options dialog and console, with every setting behind each element.",
-	"version": "0.5.7",
+	"description": "Live preview of a TF2 HUD's sourcescheme.res (server browser, options dialog and console, with every setting behind each element) and of the borders in its clientscheme.res.",
+	"version": "0.6.0",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
@@ -23,7 +23,10 @@
 	],
 	"main": "./extension.js",
 	"activationEvents": [
-		"onWebviewPanel:tf2SourceScheme.preview"
+		"onWebviewPanel:tf2SourceScheme.preview",
+		"onWebviewPanel:tf2SourceScheme.borderPreview",
+		"workspaceContains:**/resource/clientscheme.res",
+		"onStartupFinished"
 	],
 	"contributes": {
 		"commands": [
@@ -32,6 +35,17 @@
 				"title": "Open SourceScheme Preview",
 				"category": "TF2",
 				"icon": "$(open-preview)"
+			},
+			{
+				"command": "tf2SourceScheme.openBorderPreview",
+				"title": "Open ClientScheme Border Preview",
+				"category": "TF2",
+				"icon": "$(primitive-square)"
+			},
+			{
+				"command": "tf2SourceScheme.previewBorder",
+				"title": "Preview Border",
+				"category": "TF2"
 			},
 			{
 				"command": "tf2SourceScheme.zoomIn",
@@ -66,6 +80,11 @@
 				{
 					"command": "tf2SourceScheme.openPreview",
 					"when": "resourceExtname =~ /^\\.res$/i",
+					"group": "navigation"
+				},
+				{
+					"command": "tf2SourceScheme.openBorderPreview",
+					"when": "tf2ClientSchemeFile",
 					"group": "navigation"
 				}
 			],
@@ -122,6 +141,10 @@
 				},
 				{
 					"command": "tf2SourceScheme.resetWindowSize",
+					"when": "false"
+				},
+				{
+					"command": "tf2SourceScheme.previewBorder",
 					"when": "false"
 				}
 			]

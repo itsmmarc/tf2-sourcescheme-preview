@@ -24,6 +24,17 @@ Set **TF2 SourceScheme Preview: Screen Height** (`tf2SourceScheme.screenHeight`,
 
 Settings your HUD doesn't set are listed too, with the built-in default the game uses instead.
 
+## ClientScheme border preview
+
+There's also a preview for the borders in your HUD's `resource/clientscheme.res`, including borders in files it `#base`s (a separate `borders.res`, say).
+
+- **Open it** with the square icon in the editor title bar, which shows on `clientscheme.res` and every file it `#base`s, or with the **Preview border** link above each border definition. **TF2: Open ClientScheme Border Preview** in the Command Palette works too.
+- **The panel has three slots**, like a button's border keys: `border_default`, `border_armed` (shown while you hover the panel) and `border_selected` (shown while you hold the mouse down on it). These follow TF2's `CExButton`: a key that isn't set falls back to `border_default`, then to the scheme's `ButtonBorder` (or `ButtonDepressedBorder` while pressed). The sidebar shows which border each state ends up with and why.
+- **Choosing borders:** the highlighted slot follows your cursor. Put the cursor anywhere inside a border's block and it shows in that slot. Click a slot to make it the highlighted one. Each slot's dropdown is also a search box: type part of a name to filter every border in the `#base` chain, then use the arrow keys and Enter, or click.
+- **Resize** the panel by dragging its bottom-right corner. Its `wide` and `tall` are shown in HUD units (scaled by screen height ÷ 480, as HUD panels are); double-click the corner to reset it.
+- **bgcolor** sets the panel's background, as a color name from your scheme or `R G B A`, so translucent borders blend the way they would in-game. **Show inset** outlines the area a border's `inset` leaves for the panel's contents.
+- Colors come from `clientscheme.res` and its `#base` files. Image borders (`scalable_image`) load from your HUD's `materials/vgui` folder and are drawn the same way as in the SourceScheme preview. Like that preview, it updates as you type.
+
 ## What it reads
 
 - **The `#base` chain**, starting at `resource/sourcescheme.res`. Paths are relative to the including file and matched without regard to case, like on Windows. Unsaved changes in open editors are used.
