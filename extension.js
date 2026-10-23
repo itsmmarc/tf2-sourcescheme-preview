@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const HUD = require('./lib/hud.js');
+const VPK = require('./lib/vpk.js');
 const KV = require('./media/kv.js');
 global.KV = KV;
 const { Scheme } = require('./media/scheme.js');
@@ -108,7 +109,7 @@ ${scripts}
     if (m.type === 'open') { openAt(m.fsPath, m.offset || 0); return; }
     if (m.type === 'image') {
       let data = null;
-      try { const hit = this.root && HUD.findImage(this.root, m.path); if (hit) data = fs.readFileSync(hit).toString('base64'); } catch (e) { /* not found */ }
+      try { const b = this.root && HUD.readImage(this.root, m.path, gameFor(this.root)); if (b) data = b.toString('base64'); } catch (e) { /* not found */ }
       this.panel.webview.postMessage({ type: 'image', path: m.path, data });
       return;
     }
@@ -127,6 +128,13 @@ ${scripts}
   }
 }
 
+// The game's own files (stock materials), from the TF2 folder setting, the
+// vscode-vdf extension's, a folder above the HUD, or the Steam libraries
+function gameFor(root) {
+  const hints = [vscode.workspace.getConfiguration('tf2SourceScheme').get('teamFortress2Folder'), vscode.workspace.getConfiguration('vscode-vdf').get('teamFortress2Folder')];
+  try { return VPK.gameFiles(VPK.findGame(hints.filter(Boolean), root)); } catch (e) { console.error('[tf2-sourcescheme] finding TF2 failed', e); return null; }
+}
+
 // A file's text: the open editor's (possibly unsaved) text, or what's on disk
 function readText(abs) {
   const lk = path.resolve(abs).toLowerCase();
@@ -140,8 +148,6 @@ function readText(abs) {
 // ---------------------------------------------------------------------------
 const BORDER_VIEW = 'tf2SourceScheme.borderPreview';
 let borders = null; // the open BorderPreview
-let lensEmitter = null; // fires when the CodeLens links change (slots turned on or off)
-const SLOTS_KEY = 'tf2SourceScheme.borderSlots';
 
 class BorderPreview {
   constructor(context, panel, entry) {
@@ -221,17 +227,9 @@ ${scripts}
       return;
     }
     if (m.type === 'open') { openAt(m.fsPath, m.offset || 0); return; }
-    if (m.type === 'mode') {
-      // slots on: the CodeLens offers Preview, Armed and Selected; off: just Preview
-      if (!!this.context.workspaceState.get(SLOTS_KEY) !== !!m.slots) {
-        await this.context.workspaceState.update(SLOTS_KEY, !!m.slots);
-        if (lensEmitter) lensEmitter.fire();
-      }
-      return;
-    }
     if (m.type === 'image') {
       let data = null;
-      try { const hit = this.root && HUD.findImage(this.root, m.path); if (hit) data = fs.readFileSync(hit).toString('base64'); } catch (e) { /* not found */ }
+      try { const b = this.root && HUD.readImage(this.root, m.path, gameFor(this.root)); if (b) data = b.toString('base64'); } catch (e) { /* not found */ }
       this.panel.webview.postMessage({ type: 'image', path: m.path, data });
     }
   }
@@ -338,12 +336,13 @@ function activate(context) {
       borders = new BorderPreview(context, panel, entry);
     },
   }));
-  lensEmitter = new vscode.EventEmitter();
+  const lensEmitter = new vscode.EventEmitter();
   context.subscriptions.push(lensEmitter, vscode.languages.registerCodeLensProvider({ scheme: 'file', pattern: '**/*.[rR][eE][sS]' }, {
     onDidChangeCodeLenses: lensEmitter.event,
     provideCodeLenses(doc) {
       if (!clientEntryForDoc(doc)) return [];
-      const links = context.workspaceState.get(SLOTS_KEY) ? [['Preview', 0], ['Armed', 1], ['Selected', 2]] : [['Preview', 0]];
+      // Armed and Selected also turn the preview's button states on
+      const links = [['Preview', 0], ['Armed', 1], ['Selected', 2]];
       const tips = ['Show this border (border_default)', 'Use this border for border_armed (hover)', 'Use this border for border_selected (pressed)'];
       return HUD.bordersIn(doc.getText()).flatMap(b => {
         const pos = doc.positionAt(b.start), range = new vscode.Range(pos, pos);

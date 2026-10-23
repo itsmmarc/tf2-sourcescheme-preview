@@ -2,7 +2,7 @@
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
 	"description": "Live preview of a TF2 HUD's sourcescheme.res (server browser, options dialog and console, with every setting behind each element) and of the borders in its clientscheme.res.",
-	"version": "0.6.2",
+	"version": "0.6.3",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
@@ -152,6 +152,14 @@
 		"configuration": {
 			"title": "TF2 SourceScheme Preview",
 			"properties": {
+				"tf2SourceScheme.teamFortress2Folder": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Path to your `Team Fortress 2` folder (the one holding `tf` and `hl2`), so image borders can use the game's own materials from its VPKs. Leave empty to find it automatically: from `#vscode-vdf.teamFortress2Folder#` if set, a folder above your HUD, or your Steam libraries.",
+					"examples": [
+						"C:/Program Files (x86)/Steam/steamapps/common/Team Fortress 2"
+					]
+				},
 				"tf2SourceScheme.screenHeight": {
 					"type": "number",
 					"default": 1440,

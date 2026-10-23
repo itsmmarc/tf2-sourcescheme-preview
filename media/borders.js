@@ -196,7 +196,7 @@
     let body = via.length ? `<div class="key">${via.map(v => defLink(v.node, v.key)).concat(defLink(m.node, m.key)).join(' <span class="arrow">→</span> ')}</div>` : '';
     if (b.kind === 'image') {
       const img = S.images.get((b.image || '').toLowerCase());
-      body += `<div class="val"><span class="muted">${b.scalable ? 'scalable_image' : 'image'}</span> <code>${esc(b.image)}</code>${img === false ? ' <span class="bad">not found in the HUD\'s materials folder</span>' : ''}</div>`;
+      body += `<div class="val"><span class="muted">${b.scalable ? 'scalable_image' : 'image'}</span> <code>${esc(b.image)}</code>${img === false ? ' <span class="bad">not found in the HUD or the game\'s files</span>' : ''}</div>`;
       if (b.color) {
         const r = sc.resolve(b.color), cn = m.children.get('color');
         body += `<div class="val"><span class="line">${sw(r.ok ? r.rgba : null)}<span class="muted">color</span> ${defLink(cn && cn.node, b.color)}${r.ok ? '' : ' <span class="bad">undefined, so the image isn\'t tinted</span>'}</span></div>`;
@@ -276,13 +276,14 @@
   // a border from a CodeLens link: Preview fills border_default, Armed and Selected their slots
   function setFromLens(name, slot) {
     if (!name) return;
-    if (!S.slotsOn) slot = 0;
-    S.target = slot;
+    // Armed and Selected only make sense with the button states, so they turn them on
+    if (slot > 0 && !S.slotsOn) { S.slotsOn = true; S.hover = S.down = false; }
+    // the panel shows the state that was just set while idle
+    if (S.slotsOn) S.target = slot;
     setSlot(slot, name);
     const el = document.querySelector(`.slotcard[data-i="${slot}"]`);
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   }
-  const tellMode = () => vscode.postMessage({ type: 'mode', slots: S.slotsOn });
 
   // A dropdown that doubles as a search box: type to filter, arrows to move,
   // Enter or click to choose, Escape to put back what was there. Typed text
@@ -374,7 +375,7 @@
   $('#t-slots').addEventListener('change', e => {
     S.slotsOn = e.target.checked; S.hover = S.down = false;
     if (!S.slotsOn) S.target = 0;
-    persist(); render(); tellMode();
+    persist(); render();
   });
   $('#t-inset').addEventListener('change', e => { S.showInset = e.target.checked; persist(); render(); });
   $('#t-zoom').addEventListener('change', e => { S.zoom = +e.target.value; persist(); render(); });
@@ -454,5 +455,4 @@
 
   render();
   vscode.postMessage({ type: 'ready' });
-  tellMode();
 })();
