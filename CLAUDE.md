@@ -2,7 +2,7 @@
 
 A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme.res`. It draws mock versions of the server browser, options dialog and console from the scheme, updating live as the user types. Clicking any element shows every color, font, border and string behind it, each linked to its definition.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.5.6.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.5.7.
 
 ## Build and install
 
@@ -87,6 +87,14 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - `draw_corner_width`/`draw_corner_height` scale by the classic 480-line proportional base, not 1080: `floor(v * screenHeight / 480)`. So 4 draws 12px at 1440p, measured from the user's in-game screenshot (12px corners, 12px stretched edge, 12px corners on a 36px active tab).
 - `src_corner_*` are texture pixels and aren't scaled. The source corner is stretched to the draw size, so a draw size bigger than the source corner looks blurry or pixelated in-game too.
 
+**Line borders** (`Border::Paint`; matches the user's 1440p screenshot of a 3-line `ButtonDepressedBorder` pixel for pixel in layout)
+- Lines are 1px, in screen pixels, never scaled. Line i of a side is i px in from that edge.
+- Each line runs the side's full length less its `offset` "start end" (top/left end first). Lines from different sides cross at the corners.
+- Paint order is left, top, right, bottom, each line blended over what's already there (including other lines and the control's own background).
+- The border paints after the control's children (it's on top of a combo's arrow button, a list's scroll bar).
+- `inset` doesn't move the lines. It offsets and shrinks the area the control's contents (text) paint in; background and border ignore it.
+- The preview paints a small model of the border in JS and lays it out as nine background pieces on a `::after` (on the element itself for `<input>`s). Inset is a transparent CSS border on `.ctl.ab` controls and inputs; tabs are left out, since their width comes from the text alone.
+
 **Other**
 - Tabs have no hover state; while pressed they draw `Button.SelectedBgColor`.
 - Translucent colors are blended in linear light, which matches in-game pixels to about 1 level.
@@ -127,7 +135,8 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - The key list's x inset is `px(5)`; the game shows about 7px at 1440p.
 - Exact section header heights depend on the user's header font, which hasn't been checked.
 - Tab widths depend on the HUD's `Default` font, and the `px(8)` buffer may round differently in the engine.
-- Border line offsets and the shape of rounded (`backgroundtype 2`) corners are guesses, since the engine's `vgui2/src` isn't public.
+- The shape of rounded (`backgroundtype 2`) corners is a guess, since the engine's `vgui2/src` isn't public.
+- Whether a parent's border inset also shifts its child panels (lists, frames) hasn't been checked; the preview doesn't shift them.
 - The user's actual HUD files have never been loaded here. Fonts substitute if they aren't in the HUD or installed.
 
 ## About the user

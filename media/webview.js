@@ -325,10 +325,11 @@
       const sides = ['left', 'top', 'right', 'bottom'].map(side => {
         const lines = b.sides[side] || [];
         if (!lines.length) return '';
-        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}</span>`).join('')}</div>`;
+        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
       }).join('');
       detail = (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>') + (b.backgroundtype === 2 ? '<div class="val muted">backgroundtype 2: rounded corners</div>' : '');
     }
+    if (b.inset.some(v => v)) detail += `<div class="val muted">inset ${b.inset.join(' ')}: moves the text in, the lines stay put</div>`;
     return `<div class="item"><span class="sw num">▢</span><div class="body"><div class="role"><b>${esc(role)}</b>${loc((via[0] || m).node)}</div><div class="key">${chain}</div>${detail}</div></div>`;
   }
 
