@@ -56,8 +56,8 @@
     button: { name: 'Button', keys: BUTTON, borders: BUTTON_BORDERS, fonts: ['Default'] },
     toggle: { name: 'Toggle button', keys: [...BUTTON, ['ToggleButton.SelectedTextColor', 'Text, switched on', W]], borders: BUTTON_BORDERS, fonts: ['Default'],
       note: 'While switched on it stays pressed, so it uses the pressed background.' },
-    url: { name: 'Link button', keys: [['Button.TextColor', 'Text', W], ['Button.ArmedTextColor', 'Text, hover', 'Button.TextColor']], fonts: ['Default'],
-      note: 'URLButton\'s source isn\'t public; drawn here as underlined button text.' },
+    url: { name: 'Link button', keys: [['Button.TextColor', 'Text', W], ['Button.ArmedTextColor', 'Text, hover', 'Button.TextColor'], ['Button.BgColor', 'Background', [0, 0, 0, 255]], ['Button.ArmedBgColor', 'Background, hover', 'Button.BgColor']], fonts: ['Default'],
+      note: 'URLButton\'s source isn\'t public. In-game it draws a button background with underlined text and no border.' },
     colhead: { name: 'List column header', keys: BUTTON, borders: BUTTON_BORDERS, fonts: ['DefaultSmall'],
       note: 'The server browser\'s list headers use the DefaultSmall font.' },
     list: { name: 'List', keys: [['ListPanel.BgColor', 'Background', W], ['ListPanel.EmptyListInfoTextColor', 'Text, empty list message', W]], borders: [['ButtonDepressedBorder', 'Border']], fonts: ['Default'] },
@@ -82,6 +82,7 @@
       ['CheckButton.Check', 'Tick', [20, 20, 20, 255]], ['CheckButton.DisabledFgColor', 'Tick, disabled', [130, 130, 130, 255]], ['CheckButton.DisabledBgColor', 'Box, disabled', [62, 70, 55, 255]],
       ['Label.DisabledFgColor1', 'Text, disabled', W], ['Label.DisabledFgColor2', 'Text shadow, disabled', W]], fonts: ['Default', 'Marlett'] },
     label: { name: 'Label', keys: [['Label.TextColor', 'Text', W], ['Label.BgColor', 'Background', W]], fonts: ['Default'] },
+    labelbright: { name: 'Label (bright)', keys: [['Label.TextBrightColor', 'Text', W], ['Label.BgColor', 'Background', W]], fonts: ['Default'] },
     labeldull: { name: 'Label (dull)', keys: [['Label.TextDullColor', 'Text', W], ['Label.BgColor', 'Background', W]], fonts: ['Default'] },
     labeldis: { name: 'Label (disabled)', keys: [['Label.DisabledFgColor1', 'Text', W], ['Label.DisabledFgColor2', 'Text shadow', W], ['Label.BgColor', 'Background', W]], fonts: ['Default'] },
     entry: { name: 'Text box', keys: TEXTENTRY, borders: [['ButtonDepressedBorder', 'Border']], fonts: ['Default'] },
@@ -159,7 +160,7 @@
     ping: [['<All>', ''], '< 50', '< 100', '< 150', '< 250', '< 350', '< 600'], location: [['<All>', ''], 'Australia', 'Asia', 'Europe', 'US - West', 'US - East'],
     secure: [['<All>', ''], 'Secure', 'Not secure'], speakers: ['Headphones', '2 Speakers (Stereo)', '4 Speakers', '5.1 Speakers'], quality: ['Low', 'Medium', 'High'],
     language: ['English'], captions: ['No captions', 'Subtitles (dialog only)', 'Closed Captions'],
-    resolution: ['1280 x 720', '1600 x 900', '1920 x 1080', '2560 x 1440'], display: ['Full screen', 'Windowed', 'Windowed (no border)'],
+    display: ['Full screen', 'Windowed', 'Windowed (no border)'],
     aspect: ['Normal 4:3', 'Widescreen 16:9', 'Widescreen 16:10'], vr: ['Disabled'], crosshair: ['Default', 'Cross', 'Circle', 'Dot'],
     spray: ['Mann Co. logo', 'Saxton Hale', 'Engineer\'s Pride'], download: ['Allow all custom files from server', 'Do not download any custom files', 'Do not download custom sounds', 'Only allow map files'],
   };
@@ -249,7 +250,7 @@
       checks: { quick: false, notfull: false, users: true, nopw: false, replay: false, reverse: false, filter: false, raw: true, accel: false, joy: false, joyrev: false, joyswap: false, mute: true, voice: true, boost: false },
       sliders: { sens: 0.3, accel: 0.0, joyyaw: 0.3, joypitch: 0.25, sfx: 0.8, music: 0.4, mic: 0.6, recv: 0.7, scale: 0.4, red: 1, green: 0.85, blue: 0.2 },
       vals: { workshop: '', tagsinc: 'do not include', game: 'Team Fortress 2', ping: '', location: '', secure: '', speakers: 'Headphones', quality: 'High', language: 'English', captions: 'No captions',
-        resolution: '1920 x 1080', display: 'Full screen', aspect: 'Widescreen 16:9', vr: 'Disabled', crosshair: 'Default', spray: 'Mann Co. logo', download: 'Allow all custom files from server' },
+        resolution: '', display: 'Full screen', aspect: 'Widescreen 16:9', vr: 'Disabled', crosshair: 'Default', spray: 'Mann Co. logo', download: 'Allow all custom files from server' },
       consoleLines: CONSOLE.slice(), consoleInput: 'sv_',
       size: {}, // view -> [w, h] after the window was resized
     };
@@ -280,6 +281,14 @@
     const t = this.hudString(tok) || STOCK_FMT[tok];
     return t.replace(/%s(\d)/g, (m, i) => args[+i - 1] != null ? args[+i - 1] : '');
   };
+  // The game's English text for a token: the strings above, then every GameUI_ token
+  const GAMEUI = {};
+  for (const [k, v] of Object.entries(root.GAMEUI_STRINGS || {})) GAMEUI[k.toLowerCase()] = v;
+  function stockString(tok) {
+    const lk = String(tok).toLowerCase();
+    const k = Object.keys(TOK).find(t => TOK[t].toLowerCase() === lk);
+    return k != null ? k : STOCK_FMT[tok] != null ? STOCK_FMT[tok] : GAMEUI[lk];
+  }
   // data-tok marks elements whose text comes from a string token, for the sidebar
   const tokAttr = text => TOK[text] ? ` data-tok="${TOK[text]}"` : '';
 
@@ -358,7 +367,7 @@
     const S = this.scheme;
     const col = k => this.color(k, this.keyFallback(k));
     const out = [];
-    const fontNames = new Set(['Default', 'DefaultSmall', 'DefaultVerySmall', 'ConsoleText', this.titleFont, this.slFont]);
+    const fontNames = new Set(['Default', 'DefaultSmall', 'DefaultVerySmall', 'ConsoleText', this.titleFont, this.slFont, ...this.layoutFonts()]);
     for (const name of fontNames) out.push(`.pv-stage .${fcls(name)}{${this.fontCss(S.font(name, this.yres) || S.font('Default', this.yres))}}`);
 
     // TF2 blends translucent colors in linear light; browsers blend sRGB values.
@@ -481,12 +490,14 @@
         bd(S_(':hover'), h.c, 'button'); bd(S_(':active') + ',' + S_('.down') + ',' + S_('.down:hover'), d.c, 'button');
       };
       buttons('.vg-btn', G);
-      t('.vg-url', `color:${css('Button.TextColor', G)};`);
-      t('.vg-url:hover', `color:${css('Button.ArmedTextColor', G)};`);
+      const ub = bg('Button.BgColor', G), uh = bg('Button.ArmedBgColor', G);
+      t('.vg-url', `color:${css('Button.TextColor', ub.c)};background:${ub.css};`);
+      t('.vg-url:hover', `color:${css('Button.ArmedTextColor', uh.c)};background:${uh.css};`);
       // labels
       const lb = bg('Label.BgColor', G);
       t('.vg-label', `color:${css('Label.TextColor', lb.c)};background:${lb.css};`);
       t('.vg-label.dull', `color:${css('Label.TextDullColor', lb.c)};`);
+      t('.vg-label.bright', `color:${css('Label.TextBrightColor', lb.c)};`);
       t('.vg-label.dis', `color:${css('Label.DisabledFgColor1', lb.c)};text-shadow:1px 1px 0 ${css('Label.DisabledFgColor2', lb.c)};`);
       // list panel
       const list = bg('ListPanel.BgColor', G);
@@ -731,62 +742,74 @@
   const U = (c, name, extra) => ` data-c="${c}" data-n="${esc(name)}"${extra || ''}`;
   const P = (x, y, w, h) => `left:${px(x)}px;top:${px(y)}px;width:${px(w)}px;height:${px(h)}px;`;
   const align = a => a === 'east' ? 'justify-content:flex-end;' : a === 'center' ? 'justify-content:center;' : '';
+  // o.text / o.tok: text already resolved from a layout file, and the token it came from
+  const textOf = (self, label, o) => o.text != null ? o.text : self.L(label);
+  const tokOf = (label, o) => o.tok !== undefined ? (o.tok ? ` data-tok="${esc(o.tok)}"` : '') : tokAttr(label);
 
   Preview.prototype.btn = function (x, y, w, h, label, o) {
     o = o || {};
     const b = o.down ? 'ButtonDepressedBorder' : o.dflt ? 'ButtonKeyFocusBorder' : 'ButtonBorder';
-    const cls = ['vg-btn', 'ctl', 'ab', 'bd', bcls(b), fcls('Default'), o.dis && 'dis', o.down && 'down', o.toggle && 'toggle'].filter(Boolean).join(' ');
-    const t = this.L(label);
-    return `<div class="${cls}" style="${P(x, y, w, h)}${align(o.align)}" ${o.act ? `data-act="${o.act}"` : ''}${U(o.toggle ? 'toggle' : 'button', `"${t}" button`, tokAttr(label))}><span class="txt">${esc(t)}</span></div>`;
+    const f = o.font || 'Default';
+    const cls = ['vg-btn', 'ctl', 'ab', 'bd', bcls(b), fcls(f), o.dis && 'dis', o.down && 'down', o.toggle && 'toggle'].filter(Boolean).join(' ');
+    const t = textOf(this, label, o);
+    return `<div class="${cls}" style="${P(x, y, w, h)}${align(o.align)}${o.vert ? `align-items:${o.vert};` : ''}" ${o.act ? `data-act="${o.act}"` : ''}${U(o.toggle ? 'toggle' : 'button', `"${t}" button`, tokOf(label, o) + (f !== 'Default' ? ` data-f="${esc(f)}"` : '') + (o.attr || ''))}><span class="txt">${esc(t)}</span></div>`;
   };
   Preview.prototype.label = function (x, y, w, h, text, o) {
     o = o || {};
-    const kind = o.dis ? 'dis' : o.dull ? 'dull' : '';
-    const c = o.dis ? 'labeldis' : o.dull ? 'labeldull' : 'label';
+    const kind = o.dis ? 'dis' : o.dull ? 'dull' : o.bright ? 'bright' : '';
+    const c = o.dis ? 'labeldis' : o.dull ? 'labeldull' : o.bright ? 'labelbright' : 'label';
     const f = o.font || 'Default';
     const wrap = o.wrap ? 'wrap' : '';
-    const t = this.L(text);
-    return `<div class="vg-label ctl ab ${kind} ${wrap} ${fcls(f)}" style="${P(x, y, w, h)}${align(o.align)}${o.north ? 'align-items:flex-start;' : ''}"${U(c, `"${String(t).split('\n')[0]}" label`, (f !== 'Default' ? ` data-f="${f}"` : '') + tokAttr(text))}><span class="txt">${esc(t).replace(/\n/g, '<br>')}</span></div>`;
+    const t = textOf(this, text, o);
+    const vert = o.vert || (o.north ? 'flex-start' : '');
+    return `<div class="vg-label ctl ab ${kind} ${wrap} ${fcls(f)}" style="${P(x, y, w, h)}${align(o.align)}${vert ? `align-items:${vert};` : ''}${o.inset ? `padding-left:${o.inset}px;` : ''}${o.wrap && o.align === 'center' ? 'text-align:center;' : ''}"${U(c, `"${String(t).split('\n')[0]}" label`, (f !== 'Default' ? ` data-f="${esc(f)}"` : '') + tokOf(text, o) + (o.attr || ''))}><span class="txt">${esc(t).replace(/\n/g, '<br>')}</span></div>`;
   };
   Preview.prototype.check = function (x, y, w, h, id, text, o) {
     o = o || {};
-    const on = !!this.state.checks[id], t = this.L(text);
-    return `<div class="vg-check ctl ab ${fcls('Default')} ${on ? 'on' : ''} ${o.dis ? 'dis' : ''}" style="${P(x, y, w, h)}" data-act="check" data-id="${id}"${U('check', `"${t}" checkbox`, tokAttr(text))}>
+    const on = !!this.state.checks[id], t = textOf(this, text, o);
+    return `<div class="vg-check ctl ab ${fcls('Default')} ${on ? 'on' : ''} ${o.dis ? 'dis' : ''}" style="${P(x, y, w, h)}" data-act="check" data-id="${esc(id)}"${U('check', `"${t}" checkbox`, tokOf(text, o) + (o.attr || ''))}>
       <span class="box">${on ? ICON.check : ''}</span><span class="txt">${esc(t)}</span></div>`;
   };
   Preview.prototype.entry = function (x, y, w, h, id, value, o) {
     o = o || {};
     const b = o.console ? 'DepressedButtonBorder' : 'ButtonDepressedBorder';
-    return `<input class="vg-entry ab bd ${bcls(b)} ${fcls('Default')}" style="${P(x, y, w, h)}" id="pv-${id}" value="${esc(value)}" ${o.dis ? 'disabled' : ''} autocomplete="off" spellcheck="false"${U(o.console ? 'centry' : 'entry', o.name || 'Text box')}>`;
+    const f = o.font || 'Default';
+    return `<input class="vg-entry ab bd ${bcls(b)} ${fcls(f)}" style="${P(x, y, w, h)}" id="pv-${esc(id)}" value="${esc(value)}" ${o.dis ? 'disabled' : ''} autocomplete="off" spellcheck="false"${U(o.console ? 'centry' : 'entry', o.name || 'Text box', (f !== 'Default' ? ` data-f="${esc(f)}"` : '') + (o.attr || ''))}>`;
   };
   Preview.prototype.combo = function (x, y, w, h, id, o) {
     o = o || {};
-    const s = this.state, val = s.vals[id] != null ? s.vals[id] : '';
+    const s = this.state;
+    let val = s.vals[id] != null ? s.vals[id] : '';
     const open = s.open === id;
-    const items = (COMBOS[id] || [val]).map(it => Array.isArray(it) ? { t: it[0], v: it[1] } : { t: it, v: it });
+    const items = (id === 'resolution' ? this.resolutions() : COMBOS[id] || [val]).map(it => Array.isArray(it) ? { t: it[0], v: it[1] } : { t: it, v: it });
+    if (id === 'resolution' && !items.some(it => it.v === val)) val = items[items.length - 1].v; // the native size
     const menu = open ? `<div class="vg-menu ab bd ${bcls('MenuBorder')}" style="left:${px(x)}px;top:${px(y + h)}px;min-width:${px(w)}px;z-index:20"${U('menu', 'Dropdown list')}>${items.map(it =>
       `<div class="vg-mi ctl ${fcls('Default')} ${it.v === val ? 'armed' : ''}" data-act="pick" data-id="${id}" data-v="${esc(it.v)}"${U('mitem', `Menu item "${this.L(it.t) || '(none)'}"`, tokAttr(it.t))}>${esc(this.L(it.t)) || '&nbsp;'}</div>`).join('')}</div>` : '';
     // what the closed box shows: the picked item's own text, or its value for "<All>"-style items
     const cur = items.find(it => it.v === val), shown = cur && cur.t === cur.v ? this.L(val) : val;
     // a fixed dropdown (o.fixed) can't be opened, like the server browser's Game filter
-    return `<div class="vg-combo ctl ab bd ${bcls('ComboBoxBorder')} ${fcls('Default')} ${open ? 'open' : ''} ${o.dis ? 'dis' : ''} ${o.fixed ? 'fixed' : ''}" style="${P(x, y, w, h)}"${o.fixed ? '' : ` data-act="combo" data-id="${id}"`}${U('combo', o.name ? `"${o.name}" dropdown` : 'Dropdown')}>
+    const f = o.font || 'Default';
+    return `<div class="vg-combo ctl ab bd ${bcls('ComboBoxBorder')} ${fcls(f)} ${open ? 'open' : ''} ${o.dis ? 'dis' : ''} ${o.fixed ? 'fixed' : ''}" style="${P(x, y, w, h)}"${o.fixed ? '' : ` data-act="combo" data-id="${esc(id)}"`}${U('combo', o.name ? `"${o.name}" dropdown` : 'Dropdown', (f !== 'Default' ? ` data-f="${esc(f)}"` : '') + (o.attr || ''))}>
       <span class="v">${esc(shown)}</span><span class="arr">${ICON.down}</span></div>${menu}`;
   };
   Preview.prototype.slider = function (x, y, w, h, id, o) {
     o = o || {};
     const v = this.state.sliders[id] != null ? this.state.sliders[id] : 0.5;
-    const caps = h >= 34 && o.caps !== false;
-    return `<div class="vg-slider ab ${o.dis ? 'dis' : ''}" style="${P(x, y, w, h)}" data-slider="${id}"${U('slider', o.name ? `"${o.name}" slider` : 'Slider')}>
-      <div class="rail"><div class="track bd ${bcls('ButtonDepressedBorder')}"></div><div class="ticks">${'<i></i>'.repeat(11)}</div><div class="nob bd ${bcls('ButtonBorder')}" style="left:${(v * 100).toFixed(1)}%"></div></div>
-      ${caps ? `<div class="ends ${fcls('DefaultVerySmall')}"><span>Low</span><span>High</span></div>` : ''}
+    // end captions: o.ends ([left, right], from a layout file), else Low / High on tall sliders
+    const ends = o.ends !== undefined ? o.ends : h >= 34 && o.caps !== false ? [this.L('Low'), this.L('High')] : null;
+    const ticks = o.ticks != null ? Math.max(0, Math.min(100, o.ticks)) : 11;
+    return `<div class="vg-slider ab ${o.dis ? 'dis' : ''}" style="${P(x, y, w, h)}" data-slider="${esc(id)}"${U('slider', o.name ? `"${o.name}" slider` : 'Slider', o.attr || '')}>
+      <div class="rail"><div class="track bd ${bcls('ButtonDepressedBorder')}"></div><div class="ticks">${'<i></i>'.repeat(ticks)}</div><div class="nob bd ${bcls('ButtonBorder')}" style="left:${(v * 100).toFixed(1)}%"></div></div>
+      ${ends && (ends[0] || ends[1]) ? `<div class="ends ${fcls('DefaultVerySmall')}"><span>${esc(ends[0] || '')}</span><span>${esc(ends[1] || '')}</span></div>` : ''}
     </div>`;
   };
-  Preview.prototype.divider = function (x, y, w, h) {
-    return `<div class="vg-div ab bd ${bcls('ButtonDepressedBorder')}" style="${P(x, y, w, h)}"${U('divider', 'Divider')}></div>`;
+  Preview.prototype.divider = function (x, y, w, h, o) {
+    return `<div class="vg-div ab bd ${bcls('ButtonDepressedBorder')}" style="${P(x, y, w, h)}"${U('divider', 'Divider', (o && o.attr) || '')}></div>`;
   };
-  Preview.prototype.url = function (x, y, w, h, text) {
-    const t = this.L(text);
-    return `<div class="vg-url ctl ab ${fcls('Default')}" style="${P(x, y, w, h)}"${U('url', `"${t}" link`, tokAttr(text))}><span class="txt">${esc(t)}</span></div>`;
+  Preview.prototype.url = function (x, y, w, h, text, o) {
+    o = o || {};
+    const t = textOf(this, text, o);
+    return `<div class="vg-url ctl ab ${fcls('Default')} ${o.dis ? 'dis' : ''}" style="${P(x, y, w, h)}"${U('url', `"${t}" link`, tokOf(text, o) + (o.attr || ''))}><span class="txt">${esc(t)}</span></div>`;
   };
   Preview.prototype.scrollbar = function (x, y, h, id, frac, pos) {
     const sw = this.num('ScrollBar.Wide', 17);
@@ -831,7 +854,7 @@
   // Button::SizeToContents, i.e. text + text inset + scaled 8, plus the text inset
   // on each side; the Button text inset is scaled 6 and the text is west-aligned.
   const tabRow = () => px(28) / SC;
-  Preview.prototype.sheet = function (x, y, w, h, names, on, act) {
+  Preview.prototype.sheet = function (x, y, w, h, names, on, act, attr) {
     const row = px(28), ins = px(6);
     const tabs = names.map((n, i) => {
       const active = i === on;
@@ -839,7 +862,7 @@
       return `<span class="vg-tab ctl bd ${bcls(b)} ${fcls('Default')} ${active ? 'on' : ''}" style="margin-top:${active ? 2 : 4}px;height:${row - (active ? 1 : 3)}px;padding:0 ${ins * 2 + px(8)}px 0 ${ins}px" data-act="${act}" data-i="${i}"${U('tab', `"${this.L(n)}" tab`, tokAttr(n))}><span class="txt">${esc(this.L(n))}</span></span>`;
     }).join('');
     return `<div class="vg-tabs ab" style="${P(x, y, w, tabRow())}gap:1px">${tabs}</div>
-      <div class="vg-page ab bd ${bcls('PropertySheetBorder')}" style="${P(x, y + tabRow(), w, h - tabRow())}"${U('sheet', 'Tab page')}></div>`;
+      <div class="vg-page ab bd ${bcls('PropertySheetBorder')}" style="${P(x, y + tabRow(), w, h - tabRow())}"${U('sheet', 'Tab page', attr || '')}></div>`;
   };
 
   // ---------- server browser ----------
@@ -950,6 +973,274 @@
         `<div class="vg-mi ctl ${fcls(font)} ${i === 1 ? 'armed' : ''}" data-act="menu"${U('mitem', `Menu item "${this.L(it)}"`, tokAttr(it))}${font !== 'Default' ? ` data-f="${font}"` : ''}>${esc(this.L(it))}</div>`).join('')}</div>`;
   };
 
+  // ---------- HUD layout files (resource/optionssub*.res) ----------
+  // A HUD's optionssub<tab>.res replaces the game's layout of that options tab.
+  // Controls are sized and placed as Panel::ApplySettings does (ComputeWide,
+  // ComputeTall, ComputePos: the r/c and s/p prefixes, "+"/"-" between terms,
+  // proportional values truncated), then pinned to siblings.
+  //
+  // Pinning happens in vgui2's VPanel, which isn't public. Measured from the
+  // user's 1440p screenshot: the pinned corners meet, then xpos/ypos move the
+  // panel away from the sibling's corner: right/down from a right or bottom
+  // corner, left/up from a left or top one (a label pinned top-left to top-left
+  // with ypos 18 sits 18 above its slider).
+  const PINS = ['pin_topleft', 'pin_topright', 'pin_bottomleft', 'pin_bottomright', 'pin_center_top', 'pin_center_right', 'pin_center_bottom', 'pin_center_left'];
+  const CORNER = [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]];
+  const pinCorner = v => { // GetPinCornerFromString
+    if (v == null) return 0;
+    v = String(v).trim();
+    if (v.length === 1) return parseInt(v, 10) || 0;
+    const i = PINS.indexOf(v.toLowerCase());
+    return i < 0 ? 0 : i;
+  };
+  const atoi = v => { const m = /^\s*[+-]?\d+/.exec(v); return m ? parseInt(m[0], 10) : 0; };
+  const atof = v => { const m = /^\s*[+-]?(\d+\.?\d*|\.\d+)/.exec(v); return m ? parseFloat(m[0]) : 0; };
+  // GetProportionalScaledValueEx: truncates toward zero
+  const prop = v => Math.trunc(v * SC + (v < 0 ? -1e-6 : 1e-6));
+  function computePos(str, size, parent) {
+    if (str == null) return 0;
+    let s = String(str).trim(), pos = 0, op = '';
+    for (let n = 0; n < 32; n++) {
+      let align = '', pre = '';
+      if (/^[rc]/i.test(s)) { align = s[0].toLowerCase(); s = s.slice(1); }
+      if (/^[sp]/i.test(s)) { pre = s[0].toLowerCase(); s = s.slice(1); }
+      const fl = atof(s);
+      const delta = pre === 's' ? Math.trunc(size * fl) : pre === 'p' ? Math.trunc(parent * fl) : prop(atoi(s));
+      const v = align === 'r' ? parent - delta : align === 'c' ? Math.trunc(parent / 2) + delta : delta;
+      pos = op === '+' ? pos + v : op === '-' ? pos - v : v;
+      s = s.replace(/^[+-]/, '').replace(/^[\d.]+/, '');
+      if (s[0] !== '+' && s[0] !== '-') break;
+      op = s[0]; s = s.slice(1);
+    }
+    return pos;
+  }
+  function computeSize(str, parent, dflt, other) {
+    if (str == null) return dflt;
+    const s = String(str).trim(), c = s[0] ? s[0].toLowerCase() : '', rest = s.slice(1);
+    if (c === 'f') return parent - prop(atoi(rest));
+    if (c === 'o') return other ? Math.trunc(other() * atof(rest)) : 0;
+    if (c === 'p') return Math.trunc((parent - prop(atoi(rest))) * atof(rest));
+    if (c === 's') return Math.trunc(dflt * atof(rest));
+    return prop(atoi(s));
+  }
+
+  // What the game's own code does to the controls it knows by name, per tab:
+  // the sample state a control shows (id into state.checks / sliders / vals),
+  // when it's disabled, and controls it hides whatever the file says.
+  // code: the slider is made in code, so it ignores minvalue / maxvalue /
+  // cvar_name and keeps its leftText / rightText captions.
+  const LAYOUT_BIND = {
+    mouse: {
+      reversemouse: { id: 'reverse' }, mousefilter: { id: 'filter' }, mouseraw: { id: 'raw' }, mouseaccelerationcheckbox: { id: 'accel' },
+      slider: { id: 'sens', code: true }, sensitivitylabel: { value: '2.00' },
+      mouseaccelerationslider: { id: 'accel', code: true, dis: s => !s.checks.accel }, mouseaccelerationlabel: { value: '1.00', dis: s => !s.checks.accel },
+      joystick: { id: 'joy' }, reversejoystick: { id: 'joyrev', dis: s => !s.checks.joy }, joysticksouthpaw: { id: 'joyswap', dis: s => !s.checks.joy },
+      joystickyawslider: { id: 'joyyaw', code: true, dis: s => !s.checks.joy }, joystickpitchslider: { id: 'joypitch', code: true, dis: s => !s.checks.joy },
+      joystickyawsensitivityprelabel: { dis: s => !s.checks.joy }, joystickpitchsensitivityprelabel: { dis: s => !s.checks.joy },
+      joystickyawsensitivitylabel: { dis: s => !s.checks.joy }, joystickpitchsensitivitylabel: { dis: s => !s.checks.joy },
+    },
+    video: {
+      resolution: { id: 'resolution' }, displaymodecombo: { id: 'display' }, aspectratio: { id: 'aspect' },
+      gammabutton: { dis: () => true },
+      vrmode: { hidden: 'The game hides the VR mode setting.' }, vrmodelabel: { hidden: 'The game hides the VR mode setting.' },
+    },
+  };
+  // Cvar limits that clamp a CCvarSlider's minvalue / maxvalue (CCvarSlider::SetupSlider)
+  // and their defaults, for the sample handle position
+  const CVARS = {
+    mat_monitorgamma: [1.6, 2.6, 2.2], mat_monitorgamma_tv_exp: [1, 4, 2.5], mat_monitorgamma_tv_range_min: [null, null, 16],
+    mat_monitorgamma_tv_range_max: [null, null, 255], cl_yawspeed: [null, null, 210], cl_pitchspeed: [null, null, 225],
+    sensitivity: [0.0001, 10000000, 3], volume: [0, 1, 1], snd_musicvolume: [0, 1, 1], voice_scale: [0, 1, 1], m_yaw: [null, null, 0.022], m_pitch: [null, null, 0.022],
+  };
+
+  Preview.prototype.setLayouts = function (list) {
+    this.layouts = {};
+    for (const l of list || []) {
+      const files = new Map();
+      for (const f of l.files) {
+        const rec = { key: f.key, path: f.path, fsPath: f.fsPath, text: f.text, virtual: false };
+        rec.parsed = root.KV.parse(f.text, rec);
+        files.set(f.key, rec);
+      }
+      const order = l.files.map(f => f.key);
+      this.layouts[l.tab] = { tab: l.tab, files, main: files.get(order[0]), controls: root.KV.mergeRoot(files, order), missing: l.missing || [] };
+    }
+    if (this.scheme) this.style.textContent = this.css();
+  };
+  // The resolution dropdown's sample list, ending with the screen's own size
+  Preview.prototype.resolutions = function () {
+    const native = `${Math.round(this.yres * 16 / 9)} x ${this.yres} (native)`;
+    return ['1280 x 720', '1600 x 900', '1920 x 1080', '2560 x 1440'].filter(r => !native.startsWith(r + ' ')).concat([native]);
+  };
+  // fonts named by layout controls, so the stylesheet has a class for each
+  Preview.prototype.layoutFonts = function () {
+    const out = new Set();
+    for (const L of Object.values(this.layouts || {})) for (const m of L.controls.values()) {
+      if (!m.block) continue;
+      const f = setting(m, 'font');
+      if (f && this.scheme && this.scheme.fonts.has(f.toLowerCase())) out.add(f);
+    }
+    return out;
+  };
+  const setting = (m, k) => { const e = m.children.get(k); return e && !e.block ? e.value : undefined; };
+  const flag = (m, k, dflt) => { const v = setting(m, k); return v == null ? dflt : atoi(v); };
+
+  // Every control of a layout, sized and placed in pixels relative to the tab page
+  Preview.prototype.layoutRects = function (L, pageW, pageH) {
+    const screen = [Math.round(this.yres * 16 / 9), this.yres];
+    const recs = [], byName = new Map();
+    for (const m of L.controls.values()) {
+      if (!m.block) continue;
+      const g = k => setting(m, k);
+      const name = g('fieldname') || m.key;
+      const parent = flag(m, 'proportionaltoparent', 0) === 1 ? [pageW, pageH] : screen;
+      const ws = g('wide'), ts = g('tall');
+      let w, h;
+      const W_ = () => computeSize(ws, parent[0], 64);
+      const H_ = () => computeSize(ts, parent[1], 24);
+      if (/^\s*o/i.test(ws || '')) { h = H_(); w = computeSize(ws, parent[0], 64, () => h); }
+      else { w = W_(); h = computeSize(ts, parent[1], 24, () => w); }
+      const r = { m, name, lk: name.toLowerCase(), type: g('controlname') || '', w, h,
+        x0: computePos(g('xpos'), w, parent[0]), y0: computePos(g('ypos'), h, parent[1]),
+        pin: g('pin_to_sibling'), myC: pinCorner(g('pin_corner_to_sibling')), sibC: pinCorner(g('pin_to_sibling_corner')),
+        visible: flag(m, 'visible', 1) !== 0, enabled: flag(m, 'enabled', 1) !== 0, z: flag(m, 'zpos', 0) };
+      recs.push(r);
+      if (!byName.has(r.lk)) byName.set(r.lk, r);
+    }
+    const solve = r => {
+      if (r.x != null || r.busy) return;
+      const sib = r.pin ? byName.get(String(r.pin).toLowerCase()) : null;
+      r.busy = true;
+      if (sib && sib !== r) solve(sib);
+      r.busy = false;
+      if (!sib || sib === r || sib.x == null) { r.x = r.x0; r.y = r.y0; return; }
+      const sc = CORNER[r.sibC] || CORNER[0], mc = CORNER[r.myC] || CORNER[0];
+      r.x = sib.x + Math.trunc(sib.w * sc[0]) - Math.trunc(r.w * mc[0]) + (sc[0] ? r.x0 : -r.x0);
+      r.y = sib.y + Math.trunc(sib.h * sc[1]) - Math.trunc(r.h * mc[1]) + (sc[1] ? r.y0 : -r.y0);
+      r.pinnedTo = sib;
+    };
+    recs.forEach(solve);
+    return { recs, byName };
+  };
+
+  // A label's text: a "#token" (the HUD's chat_english.txt, else the game's English) or literal text
+  Preview.prototype.resText = function (v) {
+    if (v == null || v === '') return { text: '' };
+    const s = String(v);
+    if (s[0] !== '#') return { text: cleanText(s), tok: '' };
+    const tok = s.slice(1), h = this.hudString(tok);
+    if (h != null) return { text: h, tok };
+    const st = stockString(tok);
+    return { text: st != null ? cleanText(st) : s, tok, unknown: st == null };
+  };
+
+  // How a control type draws, by its ControlName (case-insensitive, as the
+  // build factories are looked up). The options dialog lives in GameUI, which
+  // only has the vgui_controls and GameUI classes: TF2's own CExLabel,
+  // CExButton etc. are in the client and can't be made here.
+  const kindOf = type => {
+    const t = type.toLowerCase();
+    if (/^cex/.test(t)) return null;
+    if (/^url(button|label)$/.test(t)) return 'url';
+    if (/(checkbutton|radiobutton)$/.test(t)) return 'check';
+    if (/combobox$/.test(t)) return 'combo';
+    if (/textentry$/.test(t)) return 'entry';
+    if (/slider$/.test(t) && !/scrollbar/.test(t)) return 'slider';
+    if (/button$/.test(t)) return 'button';
+    if (/label$/.test(t)) return 'label';
+    if (t === 'divider') return 'divider';
+    if (t === 'sectionedlistpanel') return 'keylist';
+    if (/imagepanel$/.test(t)) return 'image';
+    return null;
+  };
+  const ALIGN = { 'north-west': ['', 'flex-start'], north: ['center', 'flex-start'], 'north-east': ['east', 'flex-start'], west: ['', 'center'], center: ['center', 'center'], east: ['east', 'center'],
+    'south-west': ['', 'flex-end'], south: ['center', 'flex-end'], 'south-east': ['east', 'flex-end'] };
+
+  // The tab page drawn from a layout file: page origin and size in pixels
+  Preview.prototype.layoutPage = function (L, ox, oy, pw, ph) {
+    const s = this.state, bind = LAYOUT_BIND[L.tab] || {}, u = v => v / SC;
+    const rects = L.lastRects = this.layoutRects(L, pw, ph), recs = rects.recs;
+    const out = [];
+    L.skipped = []; L.hidden = [];
+    const order = recs.map((r, i) => [r, i]).sort((a, b) => a[0].z - b[0].z || a[1] - b[1]).map(a => a[0]);
+    for (const r of order) {
+      const b = bind[r.lk] || {}, kind = kindOf(r.type);
+      if (b.hidden) { L.hidden.push({ r, why: b.hidden }); continue; }
+      if (!r.visible) continue;
+      if (!kind) { L.skipped.push(r); continue; }
+      const g = k => setting(r.m, k);
+      const X = u(ox + r.x), Y = u(oy + r.y), Wd = u(r.w), Ht = u(r.h);
+      const dis = !r.enabled || (b.dis ? b.dis(s) : false);
+      const lay = ` data-lay="${esc(L.tab + '|' + r.lk)}"`;
+      const font = g('font') && this.scheme.fonts.has(g('font').toLowerCase()) ? g('font') : undefined;
+      const txt = this.resText(g('labeltext'));
+      const id = b.id || 'f:' + r.lk;
+      const al = ALIGN[(g('textalignment') || '').toLowerCase()] || ALIGN.west;
+      const o = { text: txt.text, tok: txt.tok || '', dis, attr: lay, font, align: al[0], vert: al[1] };
+      switch (kind) {
+        case 'label': {
+          const ins = flag(r.m, 'textinsetx', 0), cw = flag(r.m, 'centerwrap', 0) > 0;
+          out.push(this.label(X, Y, Wd, Ht, '', Object.assign(o, { dull: flag(r.m, 'dulltext', 0) === 1, bright: flag(r.m, 'brighttext', 0) === 1,
+            wrap: flag(r.m, 'wrap', 0) > 0 || cw, align: cw ? 'center' : o.align, inset: flag(r.m, 'use_proportional_insets', 0) > 0 ? prop(ins) : ins })));
+          break;
+        }
+        case 'button': out.push(this.btn(X, Y, Wd, Ht, '', Object.assign(o, { dflt: flag(r.m, 'default', 0) === 1 }))); break;
+        case 'url': out.push(this.url(X, Y, Wd, Ht, '', o)); break;
+        case 'check': out.push(this.check(X, Y, Wd, Ht, id, '', o)); break;
+        case 'entry': out.push(this.entry(X, Y, Wd, Ht, 'l-' + r.lk.replace(/[^a-z0-9_-]/g, '_'), b.value || '', { dis, font, attr: lay, name: `${r.name} text box` })); break;
+        case 'combo': out.push(this.combo(X, Y, Wd, Ht, id, { dis, font, attr: lay, name: r.name })); break;
+        case 'slider': {
+          const sl = this.sliderSpec(r, b);
+          if (s.sliders[id] == null && sl.pos != null) s.sliders[id] = sl.pos;
+          out.push(this.slider(X, Y, Wd, Ht, id, { dis, attr: lay, name: r.name, ends: sl.ends, ticks: g('numticks') != null ? atoi(g('numticks')) + 1 : null }));
+          break;
+        }
+        case 'divider': out.push(this.divider(X, Y, Wd, Ht, { attr: lay })); break;
+        case 'keylist': out.push(this.keyList(X, Y, Wd, Ht, lay)); break;
+        case 'image': out.push(`<div class="vg-img ab" style="${P(X, Y, Wd, Ht)}"${U('image', `${r.name} image`, lay)}></div>`); break;
+      }
+    }
+    return out.join('');
+  };
+  // A slider's end captions and sample handle position. One made from the file
+  // (CCvarSlider with minvalue / maxvalue / cvar_name) shows its range as
+  // "%.2f", clamped to the cvar's own limits; one made in code keeps the
+  // file's leftText / rightText.
+  Preview.prototype.sliderSpec = function (r, b) {
+    const g = k => setting(r.m, k);
+    const cvar = /^ccvarslider$/i.test(r.type) && !b.code && ['minvalue', 'maxvalue', 'cvar_name'].some(k => g(k) != null);
+    if (!cvar) {
+      const l = g('lefttext'), rt = g('righttext');
+      return { ends: l == null && rt == null ? null : [this.resText(l).text, this.resText(rt).text], code: true };
+    }
+    const c = CVARS[(g('cvar_name') || '').toLowerCase()] || [];
+    let lo = g('minvalue') != null ? atof(g('minvalue')) : 0, hi = g('maxvalue') != null ? atof(g('maxvalue')) : 1;
+    if (c[0] != null) lo = Math.max(lo, c[0]);
+    if (c[1] != null) hi = Math.min(hi, c[1]);
+    const pos = c[2] != null && hi > lo ? Math.max(0, Math.min(1, (c[2] - lo) / (hi - lo))) : null;
+    return { ends: [lo.toFixed(2), hi.toFixed(2)], range: [lo, hi], clamped: c[0] != null || c[1] != null, pos };
+  };
+  // Inspector details for a control drawn from a layout file (data-lay="tab|name")
+  Preview.prototype.layoutInfo = function (lay) {
+    const [tab, lk] = String(lay).split('|');
+    const L = this.layouts && this.layouts[tab];
+    if (!L) return null;
+    const file = L.main;
+    if (!lk) return { tab, file, hidden: L.hidden || [], skipped: L.skipped || [], missing: L.missing };
+    const r = (L.lastRects || this.layoutRects(L, 0, 0)).byName.get(lk);
+    if (!r) return null;
+    const b = (LAYOUT_BIND[tab] || {})[lk] || {}, notes = [];
+    if (r.pinnedTo) notes.push(`Pinned to ${r.pinnedTo.name}: its ${PINS[r.sibC].slice(4).replace('_', ' ')} corner, this panel's ${PINS[r.myC].slice(4).replace('_', ' ')} corner, then moved by xpos / ypos away from that corner.`);
+    if (kindOf(r.type) === 'slider') {
+      const sl = this.sliderSpec(r, b);
+      if (sl.range) notes.push(`A CCvarSlider made from the file shows its range (${sl.ends.join(' to ')}) as its captions, not leftText / rightText${sl.clamped ? `, clamped to the limits of ${setting(r.m, 'cvar_name')}` : ''}.`);
+    }
+    if (b.dis && kindOf(r.type) && b.dis(this.state) && r.enabled) notes.push('The game disables this control here.');
+    const t = this.resText(setting(r.m, 'labeltext'));
+    if (t.unknown) notes.push(`"${setting(r.m, 'labeltext')}" isn't a string the game or the HUD's chat_english.txt defines, so it shows as is.`);
+    return { tab, file, name: r.name, type: r.type, node: r.m.node, px: [r.x, r.y, r.w, r.h], notes };
+  };
+
   // ---------- options ----------
   const OPT_TABS = ['Keyboard', 'Mouse', 'Audio', 'Video', 'Voice', 'Multiplayer'];
   Preview.prototype.viewOptions = function () {
@@ -970,8 +1261,11 @@
     const SL = (x, y, w, h, id, o) => { const [X, Y] = at(x, y); return this.slider(X, Y, w, h, id, o); };
     const D = (x, y, w, h) => { const [X, Y] = at(x, y); return this.divider(X, Y, w, h); };
     const U_ = (x, y, w, h, t) => { const [X, Y] = at(x, y); return this.url(X, Y, w, h, t); };
-    const out = [this.sheet(sx, sy, sw, sheetH, OPT_TABS, s.optTab, 'opttab')];
-    switch (OPT_TABS[s.optTab]) {
+    // a HUD's optionssub<tab>.res replaces the built-in copy of the stock layout
+    const tabKey = OPT_TABS[s.optTab].toLowerCase(), layout = this.layouts && this.layouts[tabKey];
+    const out = [this.sheet(sx, sy, sw, sheetH, OPT_TABS, s.optTab, 'opttab', layout ? ` data-lay="${tabKey}|"` : '')];
+    if (layout) out.push(this.layoutPage(layout, x, y + px(28), wide, tall - px(32) - px(28)));
+    else switch (OPT_TABS[s.optTab]) {
       case 'Keyboard': { // optionssubkeyboard.res
         const [X, Y] = at(8, 10);
         out.push(this.keyList(X, Y, 480, 258));
@@ -1004,7 +1298,7 @@
           L(254, 24, 160, 24, 'Display mode'), CB(254, 50, 182, 24, 'display', { name: 'Display mode' }),
           L(36, 100, 160, 24, 'Aspect Ratio'), CB(36, 126, 160, 24, 'aspect', { name: 'Aspect Ratio' }),
           B(254, 126, 182, 24, 'Adjust brightness levels...', { dis: true }),
-          L(36, 170, 160, 24, 'Virtual Reality Mode'), CB(36, 196, 160, 24, 'vr', { name: 'Virtual Reality Mode' }),
+          // the VR mode label and dropdown are in the file, but the game hides them
           B(254, 196, 182, 24, 'Advanced...'), U_(254, 270, 225, 24, '3rd party technology credits'));
         break;
       case 'Voice': // optionssubvoice.res
@@ -1047,7 +1341,7 @@
   // "linespacing" 20 (scaled) tall and sections a scaled 8 apart. The keyboard
   // page's action column is 286 (scaled) wide and its text is indented 6px.
   // The scroll bar sits 2px in from the right edge.
-  Preview.prototype.keyList = function (x, y, w, h) {
+  Preview.prototype.keyList = function (x, y, w, h, attr) {
     const s = this.state, sbW = px(this.num('ScrollBar.Wide', 17));
     const W = px(w), H = px(h), ins = px(5), iw = Math.max(0, W - 10 - sbW);
     const ht = this.tall('DefaultVerySmall') + 7, rt = px(20), gap = px(8), col = px(286);
@@ -1055,7 +1349,7 @@
     const rows = BINDS.map(([sec, items], si) =>
       `<div class="vg-shead ctl ${fcls('DefaultVerySmall')}" style="height:${ht}px;${si ? `margin-top:${gap}px;` : ''}"${U('shead', `"${this.L(sec)}" section header`, tokAttr(sec))}><span style="width:${col}px">${esc(this.L(sec))}</span><span>${esc(kb)}</span></div>` +
       items.map(([a, k]) => `<div class="vg-srow ctl ${fcls(this.slFont)} ${a === s.optRow ? 'sel' : ''}" style="height:${rt}px" data-act="optrow" data-id="${esc(a)}"${U('srow', a === s.optRow ? 'Selected key row' : 'Key row', tokAttr(a))}><span style="width:${col}px">${esc(this.L(a))}</span><span class="k">${esc(k)}</span></div>`).join('')).join('');
-    return `<div class="vg-slist ab bd ${bcls('ButtonDepressedBorder')}" style="${P(x, y, w, h)}"${U('slist', 'Key list')}>
+    return `<div class="vg-slist ab bd ${bcls('ButtonDepressedBorder')}" style="${P(x, y, w, h)}"${U('slist', 'Key list', attr || '')}>
       <div class="ab vg-lbody" style="left:${ins}px;top:0;width:${iw}px;bottom:0;padding-top:${ins}px" data-scroll="sb2">${rows}</div>${this.scrollbar((W - sbW - 2) / SC, 0, (H - 2) / SC, 'sb2', 0.45, 0)}</div>`;
   };
 
@@ -1267,12 +1561,14 @@
     for (const f of fonts) items.push({ kind: 'font', key: this.fontFor(f), role: f === 'Marlett' ? 'Icon font (Marlett glyphs)' : 'Font' });
     for (const [b, role] of c.borders || []) items.push({ kind: 'border', key: b, role });
     if (el.dataset.tok) items.push({ kind: 'string', key: el.dataset.tok, role: 'Text' });
-    return { control: el.dataset.c, controlName: c.name, name: el.dataset.n || c.name, note: c.note, items };
+    const layout = el.dataset.lay ? this.layoutInfo(el.dataset.lay) : null;
+    return { control: el.dataset.c, controlName: c.name, name: el.dataset.n || c.name, note: c.note, items, layout };
   };
 
   // The game's English text for a token
   Preview.tokStatus = tokStatus;
-  Preview.stockString = tok => { const lk = String(tok).toLowerCase(); const k = Object.keys(TOK).find(t => TOK[t].toLowerCase() === lk); return k != null ? k : STOCK_FMT[tok]; };
+  Preview.stockString = stockString;
+  Preview.OPT_TABS = OPT_TABS;
   root.Preview = Preview;
   // the border painters, for the ClientScheme border preview (borders.js)
   Preview.imageBorderCss = imageBorderCss;

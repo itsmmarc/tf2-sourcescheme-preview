@@ -4,7 +4,7 @@ A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme
 
 It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.7.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.8.
 
 ## Build and install
 
@@ -17,19 +17,20 @@ Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main
 
 | File | Role |
 |---|---|
-| `extension.js` | Extension host. Opens the webview panels (`Preview` for SourceScheme, `BorderPreview` for ClientScheme borders), loads the `#base` chains, sends fonts, images and HUD strings, watches files. Registers the commands, including the right-click menu ones, the border CodeLens and the `tf2ClientSchemeFile` context key. |
-| `lib/hud.js` | Plain Node, no VS Code APIs. Finds the HUD, resolves paths case-insensitively, follows `#base` (`loadChain`), loads `CustomFontFiles`, finds image borders (`readImage`: HUD first, then the game's files), and parses `resource/chat_english.txt` (`loadStrings`). For ClientScheme: `clientEntryFor` (the clientscheme.res whose chain holds a file) and `bordersIn` (border definitions in a file, for the CodeLens). |
+| `extension.js` | Extension host. Opens the webview panels (`Preview` for SourceScheme, `BorderPreview` for ClientScheme borders), loads the `#base` chains, sends fonts, images, HUD strings and options layouts, watches files, creates `sourcescheme.res` from the empty state's button. Registers the commands, including the right-click menu ones, the border CodeLens and the `tf2ClientSchemeFile` context key. |
+| `lib/hud.js` | Plain Node, no VS Code APIs. Finds the HUD (`findHud`: the folder with `info.vdf`, falling back to the nearest `resource/sourcescheme.res`), creates a scheme (`createScheme`), loads the options layouts (`loadLayouts`: `resource/optionssub<tab>.res` and their `#base`s), resolves paths case-insensitively, follows `#base` (`loadChain`), loads `CustomFontFiles`, finds image borders (`readImage`: HUD first, then the game's files), and parses `resource/chat_english.txt` (`loadStrings`). For ClientScheme: `clientEntryFor` (the clientscheme.res whose chain holds a file) and `bordersIn` (border definitions in a file, for the CodeLens). |
 | `lib/vpk.js` | The game's own files: a VPK v1/v2 reader, `findGame` (the `tf2SourceScheme.teamFortress2Folder` setting, then `vscode-vdf.teamFortress2Folder`, a folder above the HUD, Steam libraries from `libraryfolders.vdf`) and `gameFiles` (tf then hl2, loose files before `*_textures_dir.vpk` and `*_misc_dir.vpk`). Tested only on synthetic VPKs. |
 | `media/kv.js` | KeyValues tokenizer and parser, plus `#base` resolution and merging. Shared by host and webview. |
 | `media/scheme.js` | `Scheme`: merged colors, base settings, fonts (picks `yres` entries), borders, problem list. |
-| `media/preview.js` | The renderer: all three dialogs, scheme→CSS, the `CONTROLS` table (which scheme keys each control reads, with fallbacks), interaction, resizing, string tokens (`TOK`). |
+| `media/preview.js` | The renderer: all three dialogs, scheme→CSS, the `CONTROLS` table (which scheme keys each control reads, with fallbacks), interaction, resizing, string tokens (`TOK`), and the HUD layout engine (`setLayouts`, `layoutRects`, `layoutPage`, `LAYOUT_BIND`, `CVARS`). |
+| `media/gameui_strings.js` | The game's English text for every `GameUI_` token (generated from `hl2/resource/gameui_english.txt` in GameTracking-TF2), for `#GameUI_*` labels in layout files. |
 | `media/webview.js` | Webview chrome: toolbar, zoom, sidebar inspector, state persistence, messages from the host. |
 | `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the "Button borders" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button borders, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. The CodeLens always shows Preview · Armed · Selected; Armed and Selected turn Button borders on. |
 | `media/vgui.css`, `media/webview.css` | Mock dialog styles and webview chrome styles. |
 | `media/fonts.js`, `media/vtf.js` | Font loading and substitution; VTF texture decoding for image borders. |
 | `media/engine_base.res` | The game's real `SourceSchemeBase.res`, built in as the end of every `#base` chain. |
 
-Host→webview messages: `scheme`, `font`, `image`, `strings`, `settings` (screen height), `zoom` (`in`/`out`/`fit`/`reset`), `resetSize`, `empty`. The border preview gets `scheme`, `image`, `settings`, `empty` and `border` (`name` and `slot` 0–2, from a CodeLens link). It doesn't follow the editor cursor; the user found that clunky.
+Host→webview messages: `scheme`, `font`, `image`, `strings`, `layouts` (`[{ tab, files, missing }]`), `showTab` (an options tab, when its `optionssub*.res` is opened or typed in), `settings` (screen height), `zoom` (`in`/`out`/`fit`/`reset`), `resetSize`, `empty` (`hud`: the HUD's name when it has an `info.vdf` but no scheme, which shows the create button). Webview→host: `ready`, `open`, `image`, `state`, `createScheme`. The border preview gets `scheme`, `image`, `settings`, `empty` and `border` (`name` and `slot` 0–2, from a CodeLens link). It doesn't follow the editor cursor; the user found that clunky.
 
 Contributed commands are `tf2SourceScheme.openPreview`, `openBorderPreview` (editor title, when `tf2ClientSchemeFile`), `previewBorder` (CodeLens only), plus `zoomIn`, `zoomOut`, `zoomFit`, `zoomReset` and `resetWindowSize`. All but the first appear only in `webview/context`, scoped by `webviewId == 'tf2SourceScheme.preview'`; Reset Window Size also needs `tf2Resizable`, set through `data-vscode-context` on resizable frames.
 
@@ -111,6 +112,16 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - Pressing a button calls `SetSelected(true)` (`Button::OnMousePressed`), which also clears armed unless `stay_armed_on_click`. So while held it draws `border_selected`, else `border_default`, else `ButtonDepressedBorder`; `border_armed` doesn't show while pressed.
 - HUD panels scale by screen height ÷ 480, so the border preview shows `wide`/`tall` in those units.
 
+**HUD layout files** (`resource/optionssub*.res`; matches the user's 1440p mouse and video screenshots to the pixel in position)
+- Sizes and positions follow `ComputeWide`/`ComputeTall`/`ComputePos` in `Panel.cpp` (the current TF2 code): `r`/`c` alignment, `s`/`p` proportional prefixes, `+`/`-` operators between terms (`"100-23"`, `"254+5"`), `f`/`p`/`o`/`s` sizes, `proportionalToParent` (else the parent size is the screen). Proportional values truncate toward zero (`-1` is `-1`px at 1440p, measured).
+- Children are placed relative to the tab page, which starts at the sheet's client x and `y + px(28)`.
+- **Pinning** is in `vgui2/src` (not public). Measured: the two corners meet, then xpos/ypos move the panel *away from the sibling's corner*: + is right/down from a right/bottom corner, left/up from a left/top one. A label pinned top-left→top-left with ypos 18 sits 18 above its slider; a slider pinned top-left→bottom-left with ypos 20 sits 20 below. Center corners are assumed to add (unchecked).
+- `CCvarSlider` made from the file (has `minvalue`/`maxvalue`/`cvar_name`): captions are its range as `%.2f`, clamped to the cvar's limits (`mat_monitorgamma` 1.6–2.6, `mat_monitorgamma_tv_exp` 1–4), ignoring `leftText`/`rightText`. Sliders the game makes in code keep the file's `leftText`/`rightText`. `numTicks` is the number of gaps (11 marks by default).
+- The game hides `VRModeLabel`/`VRMode` on the video tab whatever the file says (user-confirmed from the screenshot).
+- `URLButton` draws a button background (`Button.BgColor`) with underlined text and no border (measured).
+- GameUI can't make TF2's client classes (`CExLabel`, `CExButton`), so those aren't drawn. Unknown types are listed on the tab page's inspector.
+- A tab without a HUD file uses the built-in copy of the stock layout (the game's own files aren't read for this).
+
 **Other**
 - Tabs have no hover state; while pressed they draw `Button.SelectedBgColor`.
 - Translucent colors are blended in linear light, which matches in-game pixels to about 1 level.
@@ -146,13 +157,22 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - To smoke-test `extension.js`, load it with a stubbed `vscode` module and check that every contributed command registers.
 - Webview context menus can't be tested headlessly. Check them against the VS Code docs or in a real editor.
 
+## Console and server browser layouts
+
+- The console (`CConsoleDialog`/`CConsolePanel`) has no .res file: its layout is all in `PerformLayout`. A HUD can only change its colors and fonts.
+- The server browser does have .res files, in `platform/servers/` (`dialogserverbrowser.res`, `internetgamespage.res`, `internetgamespage_filters.res`, `customgamespage.res`, `blacklistedserverspage.res`, ...). Whether TF2 loads a HUD's copy hasn't been tested; it ignores a HUD's `ServerBrowser_*` strings, so it may not.
+
+## Inspector
+
+- The Borders section shows the border's name, chain and file link, an image border's texture and color, and only undefined line colors. Per-side lines, offsets, `paintfirst`, `inset` and `backgroundtype` rows were removed at the user's request (both the SourceScheme sidebar and the border preview's side panel).
+
 ## Still approximate or open
 
 - The key list's x inset is `px(5)`; the game shows about 7px at 1440p.
 - Exact section header heights depend on the user's header font, which hasn't been checked.
 - Tab widths depend on the HUD's `Default` font, and the `px(8)` buffer may round differently in the engine.
 - Whether a parent's border inset also shifts its child panels (lists, frames) hasn't been checked; the preview doesn't shift them.
-- The user's actual HUD files have never been loaded here. Fonts substitute if they aren't in the HUD or installed.
+- Of the user's HUD files, only their `optionssubmouse.res` and `optionssubvideo.res` have been loaded here (as layout fixtures). Fonts substitute if they aren't in the HUD or installed.
 
 ## About the user
 

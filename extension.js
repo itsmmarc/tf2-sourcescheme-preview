@@ -20,10 +20,12 @@ let engineText = '';
 let current = null; // the open Preview
 
 class Preview {
-  constructor(context, panel, entry) {
+  // target: { root, entry } from HUD.findHud (entry null when the HUD has no sourcescheme.res)
+  constructor(context, panel, target) {
     this.context = context;
     this.panel = panel;
-    this.entry = entry;
+    this.entry = target ? target.entry : null;
+    this.hudRoot = target ? target.root : null;
     this.watched = new Set();   // lower-cased fsPaths in the #base chain
     this.sentFonts = new Map(); // abs → mtime already sent
     this.timer = null;
@@ -43,7 +45,7 @@ class Preview {
     const w = this.panel.webview;
     const nonce = crypto.randomBytes(16).toString('base64');
     const src = f => w.asWebviewUri(vscode.Uri.joinPath(media, f));
-    const scripts = ['kv.js', 'scheme.js', 'fonts.js', 'vtf.js', 'preview.js', 'webview.js']
+    const scripts = ['kv.js', 'scheme.js', 'fonts.js', 'vtf.js', 'gameui_strings.js', 'preview.js', 'webview.js']
       .map(f => `<script nonce="${nonce}" src="${src(f)}"></script>`).join('\n');
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${w.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${w.cspSource} data: blob:; img-src ${w.cspSource} data: blob:;">
@@ -55,9 +57,11 @@ ${scripts}
 </body></html>`;
   }
 
-  setEntry(entry) {
-    if (entry && this.entry && path.resolve(entry).toLowerCase() === path.resolve(this.entry).toLowerCase()) return;
-    this.entry = entry;
+  setEntry(target) {
+    const same = (a, b) => (a && path.resolve(a).toLowerCase()) === (b && path.resolve(b).toLowerCase());
+    if (!target || (same(target.entry, this.entry) && same(target.root, this.hudRoot))) return;
+    this.entry = target.entry;
+    this.hudRoot = target.root;
     this.sentFonts.clear();
     this.update(true);
   }
@@ -71,12 +75,14 @@ ${scripts}
     if (!this.ready) return;
     const post = m => this.panel.webview.postMessage(m);
     if (!this.entry) {
+      // a HUD without a sourcescheme.res gets a button that creates one
       this.watched.clear();
+      this.root = this.hudRoot;
       this.panel.title = 'SourceScheme Preview';
-      post({ type: 'empty' });
+      post({ type: 'empty', hud: this.hudRoot ? path.basename(this.hudRoot) : null });
       return;
     }
-    const chain = HUD.loadChain(this.entry, readText);
+    const chain = HUD.loadChain(this.entry, readText, this.hudRoot || undefined);
     this.root = chain.root;
     this.watched = new Set(chain.files.map(f => path.resolve(f.fsPath).toLowerCase()));
     const files = chain.files.concat([{ key: HUD.ENGINE_KEY, path: 'SourceSchemeBase.res (game)', fsPath: ENGINE_URI.toString(), text: engineText, virtual: true }]);
@@ -89,6 +95,12 @@ ${scripts}
     try { strings = HUD.loadStrings(chain.root, readText); } catch (e) { console.error('[tf2-sourcescheme] reading chat_english.txt failed', e); }
     if (strings) this.watched.add(path.resolve(strings.fsPath).toLowerCase());
     post({ type: 'strings', strings });
+
+    // the HUD's options tab layouts (resource/optionssub*.res)
+    let layouts = [];
+    try { layouts = HUD.loadLayouts(chain.root, readText); } catch (e) { console.error('[tf2-sourcescheme] reading optionssub*.res failed', e); }
+    for (const l of layouts) for (const f of l.files) this.watched.add(path.resolve(f.fsPath).toLowerCase());
+    post({ type: 'layouts', layouts });
 
     // fonts named in CustomFontFiles
     try {
@@ -105,7 +117,7 @@ ${scripts}
   }
 
   async onMessage(m) {
-    if (m.type === 'ready') { this.ready = true; this.sendSettings(); this.update(true); return; }
+    if (m.type === 'ready') { this.ready = true; this.sendSettings(); this.update(true); if (this.pendingTab) { this.showTab(this.pendingTab); this.pendingTab = null; } return; }
     if (m.type === 'open') { openAt(m.fsPath, m.offset || 0); return; }
     if (m.type === 'image') {
       let data = null;
@@ -114,7 +126,25 @@ ${scripts}
       return;
     }
     if (m.type === 'state') { this.context.workspaceState.update('tf2SourceScheme.viewState', m.state); }
+    if (m.type === 'createScheme') this.createScheme();
   }
+
+  // The empty state's button: resource/sourcescheme.res plus sourcescheme_base.res,
+  // a copy of the game's own resource/sourcescheme.res (the stock TF2 scheme)
+  async createScheme() {
+    const root = this.hudRoot;
+    if (!root || this.entry) return;
+    let stock = null;
+    try { const game = gameFor(root); const buf = game && game.read('resource/sourcescheme.res'); if (buf) stock = HUD.decode(buf); } catch (e) { console.error('[tf2-sourcescheme] reading the stock sourcescheme.res failed', e); }
+    let made;
+    try { made = HUD.createScheme(root, stock || engineText); } catch (e) { vscode.window.showErrorMessage(`Couldn't create sourcescheme.res: ${e.message}`); return; }
+    this.setEntry({ root, entry: made.entry });
+    await openAt(made.entry, 0);
+    if (!stock) vscode.window.showWarningMessage('TF2 wasn\'t found, so sourcescheme_base.res is a copy of the game\'s SourceSchemeBase.res rather than its resource/sourcescheme.res. Set "tf2SourceScheme.teamFortress2Folder" and recreate it to copy the stock TF2 scheme.');
+  }
+
+  // Show an options tab, when its optionssub*.res is opened or edited
+  showTab(tab) { if (this.ready && tab) this.panel.webview.postMessage({ type: 'showTab', tab }); }
 
   sendSettings() {
     const h = vscode.workspace.getConfiguration('tf2SourceScheme').get('screenHeight', 1440);
@@ -271,15 +301,19 @@ async function openAt(fsPath, offset) {
   editor.revealRange(line.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 }
 
+// The HUD ({ root, entry }) of the file in an editor, or null
 function entryForEditor(editor) {
-  if (!editor || editor.document.uri.scheme !== 'file' || !/\.res$/i.test(editor.document.uri.fsPath)) return undefined;
+  if (!editor || editor.document.uri.scheme !== 'file' || !/\.(res|vdf|txt)$/i.test(editor.document.uri.fsPath)) return null;
   const ws = vscode.workspace.getWorkspaceFolder(editor.document.uri);
-  return HUD.findEntry(editor.document.uri.fsPath, ws && ws.uri.fsPath);
+  return HUD.findHud(editor.document.uri.fsPath, ws && ws.uri.fsPath);
 }
 
+// Any HUD in the workspace: one with a sourcescheme.res, else one with an info.vdf
 async function findAnyEntry() {
   const hits = await vscode.workspace.findFiles('**/[rR][eE][sS][oO][uU][rR][cC][eE]/[sS][oO][uU][rR][cC][eE][sS][cC][hH][eE][mM][eE].[rR][eE][sS]', '**/node_modules/**', 5);
-  return hits.length ? hits[0].fsPath : null;
+  if (hits.length) return HUD.findHud(hits[0].fsPath);
+  const infos = await vscode.workspace.findFiles('**/[iI][nN][fF][oO].[vV][dD][fF]', '**/node_modules/**', 5);
+  return infos.length ? HUD.findHud(infos[0].fsPath) : null;
 }
 
 function activate(context) {
@@ -290,14 +324,16 @@ function activate(context) {
   }));
 
   const open = async (uri) => {
-    let entry = null;
-    if (uri && uri.fsPath && /\.res$/i.test(uri.fsPath)) entry = HUD.findEntry(uri.fsPath);
-    if (!entry) entry = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
-    if (current) { current.panel.reveal(vscode.ViewColumn.Beside, true); current.setEntry(entry); return; }
+    let target = null;
+    if (uri && uri.fsPath && /\.res$/i.test(uri.fsPath)) target = HUD.findHud(uri.fsPath);
+    if (!target) target = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
+    const tab = uri && uri.fsPath ? HUD.layoutTab(uri.fsPath) : vscode.window.activeTextEditor && HUD.layoutTab(vscode.window.activeTextEditor.document.uri.fsPath);
+    if (current) { current.panel.reveal(vscode.ViewColumn.Beside, true); current.setEntry(target); current.showTab(tab); return; }
     const panel = vscode.window.createWebviewPanel(VIEW_TYPE, 'SourceScheme Preview',
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, retainContextWhenHidden: true });
-    current = new Preview(context, panel, entry);
-    if (!entry) vscode.window.showInformationMessage('Open a HUD folder that contains resource/sourcescheme.res to preview it.');
+    current = new Preview(context, panel, target);
+    current.pendingTab = tab;
+    if (!target) vscode.window.showInformationMessage('Open a HUD folder (one with an info.vdf) to preview its sourcescheme.res.');
   };
 
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openPreview', open));
@@ -379,8 +415,8 @@ function activate(context) {
 
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
     async deserializeWebviewPanel(panel) {
-      const entry = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
-      current = new Preview(context, panel, entry);
+      const target = entryForEditor(vscode.window.activeTextEditor) || await findAnyEntry();
+      current = new Preview(context, panel, target);
     },
   }));
 
@@ -389,6 +425,9 @@ function activate(context) {
   context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
     const lk = path.resolve(e.document.uri.fsPath).toLowerCase();
     for (const p of previews()) if (p.watched.has(lk)) p.schedule(120);
+    // typing in an optionssub*.res shows its tab
+    const ed = vscode.window.activeTextEditor;
+    if (current && ed && ed.document === e.document && e.contentChanges.length && current.watched.has(lk)) current.showTab(HUD.layoutTab(lk));
   }));
   context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => {
     // closing without saving reverts to what's on disk
@@ -410,8 +449,9 @@ function activate(context) {
   // follow the HUD of the .res file you're editing
   context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
     if (!current) return;
-    const entry = entryForEditor(editor);
-    if (entry) current.setEntry(entry);
+    const target = entryForEditor(editor);
+    if (target) current.setEntry(target);
+    if (editor && editor.document.uri.scheme === 'file') current.showTab(HUD.layoutTab(editor.document.uri.fsPath));
   }));
 }
 

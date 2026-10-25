@@ -214,16 +214,10 @@
         body += `<div class="val muted">corners ${b.srcW} × ${b.srcH} in the texture, drawn ${dw} × ${dh} px at ${S.yres}p</div>`;
       }
     } else {
-      const sides = ['left', 'top', 'right', 'bottom'].map(side => {
-        const lines = b.sides[side] || [];
-        if (!lines.length) return '';
-        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
-      }).join('');
-      body += (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>');
+      // only undefined line colors are worth a row; the lines themselves are in the file
+      const bad = Object.values(b.sides).flat().filter(l => !l.ok);
+      body += bad.map(l => `<div class="val">${defLink(l.entry.node, l.ref)} <span class="bad">undefined</span></div>`).join('');
     }
-    if (b.backgroundtype === 2) body += `<div class="val muted">backgroundtype 2: the panel's background gets rounded ${Preview.cornerSize(S.yres)}px corners; the border itself stays square</div>`;
-    if (b.paintfirst) body += '<div class="val muted">paintfirst 1: painted under the panel\'s background and text, not over them</div>';
-    if (b.inset.some(v => v)) body += `<div class="val muted">inset ${b.inset.join(' ')} moves the panel's contents in; the border itself doesn't move</div>`;
     return { at: loc((via[0] || m).node), body };
   }
 
