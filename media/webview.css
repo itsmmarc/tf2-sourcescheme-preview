@@ -36,6 +36,9 @@ button, select, input { font: inherit; color: inherit; }
 select { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border, var(--line)); border-radius: 2px; padding: 2px 4px; }
 .btn { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 0; border-radius: 2px; padding: 3px 10px; cursor: pointer; white-space: nowrap; }
 .btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); padding: 5px 14px; }
+.btn.primary:hover { background: var(--vscode-button-hoverBackground); }
+.btn:disabled { opacity: .6; cursor: default; }
 
 /* main */
 .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); }
@@ -93,9 +96,6 @@ a.loc.game { color: var(--muted); }
 .st { font-size: 11px; }
 .st.hud, .st.system { color: var(--ok); }
 .st.game, .st.missing { color: var(--warn); }
-.sides { display: grid; gap: 3px; margin-top: 2px; }
-.bside { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 12px; }
-.bside > .muted:first-child { width: 48px; }
 .line { display: inline-flex; gap: 5px; align-items: center; font-family: var(--mono); font-size: 12px; }
 .line .sw { width: 14px; height: 14px; }
 ol.chain, ul.probs { margin: 4px 0 0; padding: 0 14px 0 34px; display: grid; gap: 4px; }
@@ -106,6 +106,7 @@ ul.probs li.warn::marker { color: var(--warn); }
 
 .emptystate { margin: auto; max-width: 420px; text-align: center; padding: 24px; color: var(--muted); }
 .emptystate strong { display: block; color: var(--fg); font-size: 15px; margin-bottom: 6px; }
+.emptystate .btn { margin-top: 6px; }
 
 @media (max-width: 760px) {
   .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr); }

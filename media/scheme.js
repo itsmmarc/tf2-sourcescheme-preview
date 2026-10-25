@@ -137,10 +137,14 @@
       // contents (text), not where the border's lines are drawn
       const ints = (v, n) => { const a = String(v || '').trim().split(/\s+/).map(x => parseInt(x, 10) || 0); while (a.length < n) a.push(0); return a.slice(0, n); };
       const inset = ints(val('inset'), 4);
+      // read by the panel, whatever the border type: "backgroundtype" 2 rounds the
+      // panel's own background (Panel::SetBorder), "paintfirst" paints the border
+      // before that background (Panel::PaintTraverse)
+      const backgroundtype = +(val('backgroundtype') || 0), paintfirst = !!+(val('paintfirst') || 0);
       if (type === 'image' || type === 'scalable_image') {
         return { kind: 'image', name: m.key, via, inset, scalable: type === 'scalable_image', image: val('image') || '', color: val('color') || '',
           srcW: +(val('src_corner_width') || 0), srcH: +(val('src_corner_height') || 0),
-          drawW: +(val('draw_corner_width') || 0), drawH: +(val('draw_corner_height') || 0), entry: m };
+          drawW: +(val('draw_corner_width') || 0), drawH: +(val('draw_corner_height') || 0), backgroundtype, paintfirst, entry: m };
       }
       const sides = {};
       for (const side of ['left', 'right', 'top', 'bottom']) {
@@ -157,7 +161,7 @@
           sides[side].push({ ref: cv, rgba: r.ok ? r.rgba : [255, 255, 255, 255], ok: r.ok, offset: this.prop(ln, 'offset'), start, end, entry: ln });
         }
       }
-      return { kind: 'lines', name: m.key, via, inset, sides, backgroundtype: +(val('backgroundtype') || 0), entry: m };
+      return { kind: 'lines', name: m.key, via, inset, sides, backgroundtype, paintfirst, entry: m };
     }
 
     // CustomFontFiles → [{key, path, name|null, entry}]

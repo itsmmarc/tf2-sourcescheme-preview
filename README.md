@@ -14,9 +14,11 @@ In VS Code, open the Extensions view, click the … menu, choose Install from VS
 
 ## Use
 
-1. Open your HUD folder in VS Code.
+1. Open your HUD folder in VS Code. A HUD is the folder with an `info.vdf` at its root.
 2. Open any `.res` file from the HUD, for example `resource/sourcescheme.res`.
 3. Click the preview icon in the editor title bar, or run **TF2: Open SourceScheme Preview** from the Command Palette.
+
+If the HUD has no `resource/sourcescheme.res` yet, the preview offers a **Create sourcescheme.res** button. It writes a `sourcescheme.res` that `#base`s `sourcescheme_base.res` (a full copy of TF2's stock `resource/sourcescheme.res`, read from your game) and then the game's `SourceSchemeBase.res`.
 
 The preview opens beside your editor. Use the buttons at the top to switch between the server browser, options dialog, and console. To zoom, hold Ctrl and scroll, or right-click the preview for **Zoom In**, **Zoom Out**, **Zoom to Fit** and **Actual Size (100%)**.
 
@@ -28,17 +30,17 @@ Set **TF2 SourceScheme Preview: Screen Height** (`tf2SourceScheme.screenHeight`,
 
 Settings your HUD doesn't set are listed too, with the built-in default the game uses instead.
 
-## ClientScheme border preview
+## Border preview
 
-There's also a preview for the borders in your HUD's `resource/clientscheme.res`, including borders in files it `#base`s (a separate `borders.res`, say).
+There's also a preview for the borders in your HUD's `resource/clientscheme.res` or `resource/sourcescheme.res`, including borders in files they `#base` (a separate `borders.res`, say). For `sourcescheme.res`, borders the HUD doesn't define come from the game's built-in `SourceSchemeBase.res`.
 
-- **Open it** with the square icon in the editor title bar, which shows on `clientscheme.res` and every file it `#base`s, or with the **Preview · Armed · Selected** links above any border definition. **TF2: Open ClientScheme Border Preview** in the Command Palette works too.
+- **Open it** with the square icon in the editor title bar, which shows on `clientscheme.res`, `sourcescheme.res` and every file they `#base`, or with the **Preview · Armed · Selected** links above any border definition. **TF2: Open Border Preview** in the Command Palette works too. A file in both chains uses the ClientScheme.
 - **One border by default.** Pick it with a **Preview** link, or from the dropdown in the side panel. The toolbar holds the preview's own settings (states, inset outline, background, size, zoom); the side panel shows what the game reads. The dropdown is also a search box: type part of a name, then use the arrow keys and Enter, or click.
 - **Button borders:** tick **Button borders** to preview a button's `border_default`, `border_armed` (shown while you hover the panel) and `border_selected` (shown while you hold the mouse down on it). Clicking **Armed** or **Selected** on a border fills that border and turns Button borders on. Click a state to show it while the mouse is away; once you hover the panel it goes back to the default border when you leave, like the real button. These follow TF2's `CExButton`: a key that isn't set falls back to `border_default`, then to the scheme's `ButtonBorder` (or `ButtonDepressedBorder` while pressed).
 - **Size:** drag the panel's bottom-right corner, or type `wide` and `tall` in the toolbar. They're HUD units (scaled by screen height ÷ 480, as HUD panels are); double-click the corner to reset.
 - **bgcolor** sets the panel's background: pick a color from your scheme or type `R G B A`, so translucent borders blend the way they would in-game. **Show inset** outlines the area a border's `inset` leaves for the panel's contents.
 - **Image borders** (`scalable_image`) load from your HUD's `materials/vgui` folder, or from the game's own files (loose or in its VPKs) when the HUD doesn't have them. Set **TF2 SourceScheme Preview: Team Fortress 2 Folder** if your game isn't found automatically; it also uses `vscode-vdf.teamFortress2Folder` and your Steam libraries. They're drawn like the game's: the edges and centre stretch the line where the corners meet, so a texture that's all corners still fills the panel, and `color` tints the texture (its alpha doesn't apply).
-- Colors come from `clientscheme.res` and its `#base` files. Like the SourceScheme preview, it updates as you type, and Ctrl + scroll zooms.
+- Colors come from the same scheme and its `#base` files. Like the SourceScheme preview, it updates as you type, and Ctrl + scroll zooms.
 
 ## What it reads
 
@@ -46,6 +48,7 @@ There's also a preview for the borders in your HUD's `resource/clientscheme.res`
 - **The game's own `SourceSchemeBase.res`**, which is built in. Clicking a value inherited from it opens a read-only copy.
 - **Fonts** listed in `CustomFontFiles`, loaded from your HUD folder. Fonts that aren't in the HUD use the copy installed on your computer, if there is one, and are otherwise substituted (the sidebar says which).
 - **Image borders** from `materials/vgui/*.vtf` in your HUD folder.
+- **Your HUD's options tab layouts**: `resource/optionssubkeyboard.res`, `optionssubmouse.res`, `optionssubaudio.res`, `optionssubvideo.res`, `optionssubvoice.res` and `optionssubmultiplayer.res`, with their `#base` files. A tab your HUD lays out is drawn from its file; the others use the stock layout. Opening or typing in one of these files shows its tab. Click a control to see the block that defines it.
 - **Your HUD's strings** from `resource/chat_english.txt`. TF2 lets a HUD's `chat_english.txt` replace the options dialog's strings (`GameUI_*`, `PropertyDialog_*`, and `Valve_*`/`TF_*` in the key list; `"GameUI_Keyboard" "KEYBOARD"`, say), and the preview shows those replacements wherever the game would. The game ignores it for server browser (`ServerBrowser_*`) and console (`Console_*`) strings, so the preview does too, and the sidebar says so if your file sets one. Click a piece of text to see which token it comes from and whether your HUD changes it; click the token to jump to its line.
 
 The preview follows whichever HUD the `.res` file you're editing belongs to.
@@ -57,4 +60,5 @@ The preview follows whichever HUD the `.res` file you're editing belongs to.
 - **Console colors:** errors and warnings are drawn in `255 90 90`, a color the game uses itself rather than reading from the scheme.
 - **Translucent colors** are blended in linear light, as TF2 does, rather than the way browsers blend. For example, stock tabs (`201 188 162 150` over `60 56 53`) come out `162 152 131` here and `163 152 132` in-game.
 - **Server browser fonts:** the server list's rows and column headers use `DefaultSmall`, as in the game.
-- **Not public:** the scheme parser and border drawing live in the engine's `vgui2/src`, which also isn't public, so border line offsets and the exact shape of rounded (`backgroundtype 2`) corners are approximate.
+- **HUD layouts** are placed the way `Panel::ApplySettings` does: `r`/`c` and `s`/`p` prefixes, `f`/`p`/`o` sizes, `+`/`-` between terms (`"100-23"`), `proportionalToParent`, `visible`, `enabled`, `[$OSX]`-style conditions, and `pin_to_sibling`. Pinning isn't public; the preview follows the user's in-game screenshots, where xpos/ypos move a pinned panel away from its sibling's corner. A `CCvarSlider` made from the file shows its range as its captions (`1.60` / `2.60` for `mat_monitorgamma`, clamped to the cvar's limits), and the game hides the VR mode setting whatever the file says.
+- **Not public:** the scheme parser and border drawing live in the engine's `vgui2/src`, which also isn't public, so border line offsets are approximate. Rounded (`backgroundtype 2`) backgrounds and `paintfirst` borders follow the public `Panel` code and an in-game screenshot.

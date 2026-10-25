@@ -2,7 +2,7 @@
 	"name": "tf2-sourcescheme-preview",
 	"displayName": "TF2 SourceScheme Preview",
 	"description": "Live preview of a TF2 HUD's sourcescheme.res (server browser, options dialog and console, with every setting behind each element) and of the borders in its clientscheme.res.",
-	"version": "0.6.6",
+	"version": "0.6.9",
 	"publisher": "itsmmarc",
 	"license": "MIT",
 	"icon": "media/icon.png",
@@ -38,7 +38,7 @@
 			},
 			{
 				"command": "tf2SourceScheme.openBorderPreview",
-				"title": "Open ClientScheme Border Preview",
+				"title": "Open Border Preview",
 				"category": "TF2",
 				"icon": "$(primitive-square)"
 			},
@@ -84,7 +84,7 @@
 				},
 				{
 					"command": "tf2SourceScheme.openBorderPreview",
-					"when": "tf2ClientSchemeFile",
+					"when": "tf2SchemeFile",
 					"group": "navigation"
 				}
 			],

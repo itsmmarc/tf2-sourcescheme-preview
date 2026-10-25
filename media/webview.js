@@ -36,7 +36,7 @@
     </main>`;
 
   const preview = new window.Preview($('#pv'), {
-    pick: (el, x, y) => { S.pinned = { c: el.dataset.c, n: el.dataset.n || '', f: el.dataset.f || '', tok: el.dataset.tok || '' }; S.lastPoint = [x, y]; persist(); markPicked(); renderSide(); },
+    pick: (el, x, y) => { S.pinned = { c: el.dataset.c, n: el.dataset.n || '', f: el.dataset.f || '', tok: el.dataset.tok || '', lay: el.dataset.lay || '' }; S.lastPoint = [x, y]; persist(); markPicked(); renderSide(); },
     // while a window edge is being dragged, hold the zoom still so the edge stays under the pointer
     rendered: () => { markPicked(); if (S.zoom === 'fit' && !preview.resizing) applyZoom(); },
     resized: sizes => { S.sizes = sizes; persist(); if (S.zoom === 'fit') applyZoom(); },
@@ -51,7 +51,9 @@
     if (m.type === 'scheme') loadScheme(m);
     else if (m.type === 'font') loadFont(m);
     else if (m.type === 'image') loadImage(m);
-    else if (m.type === 'empty') showEmpty();
+    else if (m.type === 'empty') showEmpty(m.hud);
+    else if (m.type === 'layouts') { preview.setLayouts(m.layouts); if (S.scheme) { preview.setScheme(S.scheme, {}); preview.render(); renderSide(); } }
+    else if (m.type === 'showTab') showTab(m.tab);
     else if (m.type === 'strings') { S.strings = m.strings; preview.setStrings(m.strings); if (S.scheme) { preview.render(); renderSide(); } }
     else if (m.type === 'zoom') zoomCommand(m.op);
     else if (m.type === 'resetSize') { S.sizes = preview.resetSize(); persist(); if (S.zoom === 'fit') applyZoom(); }
@@ -98,9 +100,25 @@
     refreshTimer = setTimeout(() => { if (!S.scheme) return; if (preview.setScheme(S.scheme, {})) preview.render(); renderSide(); }, 30);
   }
 
-  function showEmpty() {
+  // No sourcescheme.res: in a HUD (a folder with an info.vdf), offer to create one
+  function showEmpty(hud) {
     $('.main').hidden = true;
-    if (!$('#empty')) $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty"><strong>No sourcescheme.res found</strong><p>Open a .res file inside a HUD folder (one that contains resource/sourcescheme.res), then run "TF2: Open SourceScheme Preview".</p></div>`);
+    S.scheme = null;
+    const old = $('#empty'); if (old) old.remove();
+    const body = hud
+      ? `<strong>${esc(hud)} has no sourcescheme.res</strong><p>Create resource/sourcescheme.res, which #bases resource/sourcescheme_base.res (a full copy of TF2's stock scheme to edit) and then the game's SourceSchemeBase.res.</p><button class="btn primary" id="create">Create sourcescheme.res</button>`
+      : `<strong>No HUD found</strong><p>Open a file inside a HUD folder (one with an info.vdf at its root), then run "TF2: Open SourceScheme Preview".</p>`;
+    $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty">${body}</div>`);
+    const btn = $('#create');
+    if (btn) btn.onclick = () => { btn.disabled = true; vscode.postMessage({ type: 'createScheme' }); };
+  }
+
+  // Switch to an options tab (its optionssub*.res was opened or edited)
+  function showTab(tab) {
+    const i = window.Preview.OPT_TABS.findIndex(t => t.toLowerCase() === tab);
+    if (i < 0 || (S.view === 'options' && preview.state.optTab === i)) return;
+    S.view = 'options'; preview.state.optTab = i; persist();
+    preview.setView('options'); syncBar();
   }
 
   // ---------- toolbar ----------
@@ -324,15 +342,27 @@
       detail = `<div class="val"><span class="muted">image</span> <code>${esc(b.image)}</code>${S.images.get((b.image || '').toLowerCase()) ? '' : ' <span class="muted">(texture not found in the HUD or the game\'s files)</span>'}</div>`;
       if (b.color) { const r = sc.resolve(b.color); detail += `<div class="val"><span class="line">${sw(r.ok ? r.rgba : null)}<span class="muted">color</span> <code>${esc(b.color)}</code>${r.ok ? '' : ' <span class="bad">undefined, so the image isn\'t tinted</span>'}</span></div>`; }
     } else {
-      const sides = ['left', 'top', 'right', 'bottom'].map(side => {
-        const lines = b.sides[side] || [];
-        if (!lines.length) return '';
-        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
-      }).join('');
-      detail = (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>') + (b.backgroundtype === 2 ? '<div class="val muted">backgroundtype 2: rounded corners</div>' : '');
+      // only undefined line colors are worth a row; the lines themselves are in the file
+      const bad = Object.values(b.sides).flat().filter(l => !l.ok);
+      detail = bad.map(l => `<div class="val">${defLink(l.entry.node, l.ref)} <span class="bad">undefined</span></div>`).join('');
     }
-    if (b.inset.some(v => v)) detail += `<div class="val muted">inset ${b.inset.join(' ')}: moves the text in, the lines stay put</div>`;
     return `<div class="item"><span class="sw num">▢</span><div class="body"><div class="role"><b>${esc(role)}</b>${loc((via[0] || m).node)}</div><div class="key">${chain}</div>${detail}</div></div>`;
+  }
+
+  // Where a control on an options tab comes from: the HUD's optionssub*.res
+  function layoutBlock(l) {
+    const f = l.file, fileLink = f ? `<a href="#" class="def" data-file="${esc(f.fsPath)}" data-off="0">${esc(f.path)}</a>` : '';
+    if (!l.name) {
+      const list = (rows, why) => rows.map(x => `<div class="val">${defLink(x.r ? x.r.m.node : x.m.node, x.r ? x.r.name : x.name)} <span class="muted">${esc(why(x))}</span></div>`).join('');
+      return `<h3>Layout</h3><div class="item"><span class="sw num">⌗</span><div class="body"><div class="role"><b>This tab is laid out by your HUD</b></div><div class="key">${fileLink}</div>
+        ${list(l.hidden, x => x.why)}${list(l.skipped, x => `${x.type || 'no ControlName'}: not drawn in the preview`)}
+        ${(l.missing || []).map(m => `<div class="val bad">#base "${esc(m.ref)}" not found</div>`).join('')}</div></div>`;
+    }
+    const [x, y, w, h] = l.px;
+    return `<h3>Layout</h3><div class="item"><span class="sw num">⌗</span><div class="body"><div class="role"><b>Defined in</b>${loc(l.node)}</div>
+      <div class="key">${defLink(l.node, l.name)} <span class="muted">${esc(l.type)}</span></div>
+      <div class="val muted">${w} × ${h} px at ${x}, ${y} on the tab page</div>
+      ${l.notes.map(n => `<div class="val muted">${esc(n)}</div>`).join('')}</div></div>`;
   }
 
   function renderSide() {
@@ -349,6 +379,7 @@
     side.innerHTML = `<div class="head"><div><span class="eyebrow">${esc(d.controlName)}</span><h2>${esc(d.name)}</h2></div>
         <button class="btn" id="unpin" title="Back to the overview (Esc)">Clear</button></div>
       ${d.note ? `<p class="note">${esc(d.note)}</p>` : ''}
+      ${d.layout ? layoutBlock(d.layout) : ''}
       ${colorGroups(colors)}
       ${fonts.length ? `<h3>Font</h3>${fonts.map(f => fontBlock(f.key, f.role)).join('')}` : ''}
       ${borders.length ? `<h3>Borders</h3>${borders.map(b => borderBlock(b.key, b.role)).join('')}` : ''}

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
-// ClientScheme border preview: a panel drawn with borders from
-// resource/clientscheme.res and the files it #bases. By default it shows one
+// Border preview: a panel drawn with borders from resource/clientscheme.res
+// or resource/sourcescheme.res and the files it #bases. By default it shows one
 // border. With slots on, three slots stand for a button's border keys:
 // hovering the panel shows the armed one and pressing it the selected one,
 // the way TF2's CExButton picks its border.
@@ -74,7 +74,7 @@
         </div>
       </section>
       <aside class="side" id="side" aria-label="Border preview settings">
-        <div class="head"><div><span class="eyebrow">ClientScheme borders</span><h2 id="hud"></h2></div></div>
+        <div class="head"><div><span class="eyebrow" id="kind">ClientScheme borders</span><h2 id="hud"></h2></div></div>
         <h3 id="slotshead">Border</h3>
         ${SLOTS.map((s, i) => `
         <div class="slotcard" data-i="${i}">
@@ -100,9 +100,11 @@
 
   function loadScheme(m) {
     const files = new Map();
-    for (const f of m.files) files.set(f.key, { key: f.key, path: f.path, fsPath: f.fsPath, text: f.text });
+    for (const f of m.files) files.set(f.key, { key: f.key, path: f.path, fsPath: f.fsPath, text: f.text, virtual: !!f.virtual, readOnly: !!f.virtual });
     S.files = files; S.label = m.label; S.missing = m.missing || [];
-    S.scheme = new Scheme({ files, entry: m.entry, engineKey: null });
+    // sourcescheme.res ends with the game's own SourceSchemeBase.res
+    S.scheme = new Scheme({ files, entry: m.entry, engineKey: m.engineKey || null });
+    $('#kind').textContent = m.kind === 'source' ? 'SourceScheme borders' : 'ClientScheme borders';
     const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
     S.names = [...S.scheme.borders.values()].map(b => b.key).sort(byName);
     S.colorNames = [...S.scheme.colors.values()].filter(c => !c.block).map(c => c.key).sort(byName);
@@ -114,7 +116,7 @@
   function showEmpty() {
     S.scheme = null;
     $('.main').hidden = true;
-    if (!$('#empty')) $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty"><strong>No clientscheme.res found</strong><p>Open a HUD folder that contains resource/clientscheme.res, then click a border's Preview link.</p></div>`);
+    if (!$('#empty')) $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty"><strong>No scheme found</strong><p>Open a HUD folder that contains resource/clientscheme.res or sourcescheme.res, then click a border's Preview link.</p></div>`);
   }
 
   function imageFor(p) {
@@ -155,16 +157,24 @@
     const sc = S.scheme, pick = borderFor(stateNow());
     const bgRes = sc && S.bg.trim() ? sc.resolve(S.bg) : null;
     const under = bgRes && bgRes.ok ? bgRes.rgba : null;
-    let css = `#panel{background:${under ? rgbaCss(under) : 'transparent'};}`;
+    let css0 = '';
     const b = sc && pick.name ? sc.border(pick.name) : null;
+    let bgc = under;
     if (b && b.kind === 'image') {
-      const tint = b.color ? sc.resolve(b.color) : null;
-      css += `#panel::after{${Preview.imageBorderCss(b, imageFor(b.image), S.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`;
+      const tint = b.color ? sc.resolve(b.color) : null, rgba = tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null, img = imageFor(b.image);
+      const body = Preview.imageBorderCss(b, img, S.yres, rgba);
+      if (b.paintfirst) {
+        // painted under the background, which blends over the texture
+        const m = img && under && under[3] < 255 ? Preview.imageMean(img, rgba) : null;
+        if (m) bgc = Preview.over(under, m);
+        css0 = `#panel{${Preview.PAINT_FIRST}}#panel::before{${body};z-index:-1}#panel::after{${Preview.BG_OVER}}`;
+      } else css0 = `#panel::after{${body}}`;
     } else if (b) {
       const ly = Preview.lineLayers(b, under);
-      css += `#panel::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;${ly ? `background-image:${ly.img};${ly.geo}` : ''}}`;
-      if (b.backgroundtype === 2) css += '#panel{border-radius:7px}';
+      css0 = `#panel::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;${ly ? `background-image:${ly.img};${ly.geo}` : ''}}`;
     }
+    let css = `#panel{background:${bgc ? rgbaCss(bgc) : 'transparent'};}` + css0;
+    if (b && b.backgroundtype === 2) css += `#panel{border-radius:${Preview.cornerSize(S.yres)}px}`;
     style.textContent = css;
     // the area the panel's contents paint in: the panel less the border's inset
     const box = $('#insetbox'), [l, t, r, bt] = b ? b.inset : [0, 0, 0, 0];
@@ -184,7 +194,7 @@
   function loc(node) {
     const f = node && node.file;
     if (!f || node.keyS == null) return '';
-    return `<a href="#" class="loc" data-file="${esc(f.fsPath)}" data-off="${node.keyS}" title="${esc(f.path)}">${esc(f.path.split('/').pop())}:${window.KV.lineNo(f.text, node.keyS)}</a>`;
+    return `<a href="#" class="loc" data-file="${esc(f.fsPath)}" data-off="${node.keyS}" title="${esc(f.virtual ? 'The game\'s own SourceSchemeBase.res' : f.path)}">${esc(f.virtual ? 'SourceSchemeBase.res' : f.path.split('/').pop())}:${window.KV.lineNo(f.text, node.keyS)}</a>`;
   }
   function borderDetail(name) {
     const sc = S.scheme, { m, via } = sc.borderEntry(name);
@@ -206,14 +216,10 @@
         body += `<div class="val muted">corners ${b.srcW} × ${b.srcH} in the texture, drawn ${dw} × ${dh} px at ${S.yres}p</div>`;
       }
     } else {
-      const sides = ['left', 'top', 'right', 'bottom'].map(side => {
-        const lines = b.sides[side] || [];
-        if (!lines.length) return '';
-        return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
-      }).join('');
-      body += (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>') + (b.backgroundtype === 2 ? '<div class="val muted">backgroundtype 2: rounded corners</div>' : '');
+      // only undefined line colors are worth a row; the lines themselves are in the file
+      const bad = Object.values(b.sides).flat().filter(l => !l.ok);
+      body += bad.map(l => `<div class="val">${defLink(l.entry.node, l.ref)} <span class="bad">undefined</span></div>`).join('');
     }
-    if (b.inset.some(v => v)) body += `<div class="val muted">inset ${b.inset.join(' ')} moves the panel's contents in; the border itself doesn't move</div>`;
     return { at: loc((via[0] || m).node), body };
   }
 
