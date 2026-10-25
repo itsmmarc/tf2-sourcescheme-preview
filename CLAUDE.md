@@ -4,7 +4,7 @@ A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme
 
 It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.6.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.7.
 
 ## Build and install
 
@@ -101,6 +101,10 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - `inset` doesn't move the lines. It offsets and shrinks the area the control's contents (text) paint in; background and border ignore it.
 - The preview paints a small model of the border in JS and lays it out as nine background pieces on a `::after` (on the element itself for `<input>`s). Inset is a transparent CSS border on `.ctl.ab` controls and inputs; tabs are left out, since their width comes from the text alone.
 
+**Panel keys read from any border** (`Panel::SetBorder`, `Panel::PaintTraverse`, `Panel::DrawBox`; checked against the user's 1440p screenshot of a `paintfirst` white image `TabActiveBorder`)
+- `backgroundtype 2` rounds the panel's own background, not the border: `PaintBackground` draws it with `DrawBox`, four `vgui/hud/8x800corner*` quarter-circle textures in the background color. Corners are `max(floor(8 × screenHeight / 480) / 2, 8)` px, so 12px at 1440p. The border stays square, so a border painted under the background shows in the corners. `0` (default) is a plain rect; `1` is a single texture.
+- `paintfirst 1` paints the border before the background and text instead of after the children. The background then blends over the border: `29 26 32 217` over the 241 white gave 104 in-game, in linear light. The preview puts such image borders on a `::before` under a `::after` copy of the background, blended over the texture's average color (`imageMean`). Line borders ignore `paintfirst` in the preview.
+
 **Button border keys** (`CExButton::GetBorder`, `src/game/client/econ/econ_controls.cpp`)
 - HUD buttons read `border_default`, `border_armed`, `border_selected` and `border_disabled`. There is no `border_depressed`.
 - Order: disabled (if set) → selected (if set and selected) → armed (if set and armed) → `border_default` (if set) → `Button::GetBorder`, which gives `ButtonDepressedBorder` when depressed and `ButtonBorder` otherwise.
@@ -147,7 +151,6 @@ Sources: Source SDK 2013 (`ValveSoftware/source-sdk-2013`, `src/vgui2/vgui_contr
 - The key list's x inset is `px(5)`; the game shows about 7px at 1440p.
 - Exact section header heights depend on the user's header font, which hasn't been checked.
 - Tab widths depend on the HUD's `Default` font, and the `px(8)` buffer may round differently in the engine.
-- The shape of rounded (`backgroundtype 2`) corners is a guess, since the engine's `vgui2/src` isn't public.
 - Whether a parent's border inset also shifts its child panels (lists, frames) hasn't been checked; the preview doesn't shift them.
 - The user's actual HUD files have never been loaded here. Fonts substitute if they aren't in the HUD or installed.
 

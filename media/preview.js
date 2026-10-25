@@ -369,21 +369,35 @@
     const css = (k, under) => rgbaCss(over(col(k), under));
 
     // borders: lines drawn over the window background
+    const imageOf = b => {
+      const tint = b.color ? S.resolve(b.color) : null;
+      return { img: this.hooks.imageFor ? this.hooks.imageFor(b.image) : null, tint: tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null };
+    };
     for (const name of BORDERS) {
       const b = S.border(name);
       const cls = bcls(name);
       if (!b) { out.push(`.pv-stage .${cls}{}`); continue; }
+      // backgroundtype 2 rounds the control's background, not the border
+      if (b.backgroundtype === 2) out.push(`.pv-stage .${cls}{border-radius:${cornerSize(this.yres)}px}`, `.pv-stage .ctl.${cls}:not(.ab){overflow:visible}`);
       if (b.kind === 'image') {
-        const url = this.hooks.imageFor ? this.hooks.imageFor(b.image) : null;
-        const tint = b.color ? S.resolve(b.color) : null;
-        out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, url, this.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`);
+        const { img, tint } = imageOf(b);
+        if (b.paintfirst) out.push(`.pv-stage .${cls}::before{${imageBorderCss(b, img, this.yres, tint)};z-index:-1}`, `.pv-stage .${cls}{${PAINT_FIRST}}`, `.pv-stage .${cls}::after{${BG_OVER}}`);
+        else out.push(`.pv-stage .${cls}::after{${imageBorderCss(b, img, this.yres, tint)}}`);
         continue;
       }
       // lines: painted by a ::after over the control and its children, as the game
       // paints borders last (text boxes can't have one, so they get backgrounds)
       out.push(`.pv-stage .${cls}::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit}`);
-      if (b.backgroundtype === 2) out.push(`.pv-stage .${cls}{border-radius:7px}`);
     }
+    // what a control's background is blended over: the window, or a "paintfirst"
+    // image border painted under it (as its average color)
+    const underOf = (name, G) => {
+      const b = S.border(name);
+      if (!b || b.kind !== 'image' || !b.paintfirst) return G;
+      const { img, tint } = imageOf(b);
+      const m = img && imageMean(img, tint);
+      return m ? over(m, G) : G;
+    };
     // a border's inset moves the text inside buttons, combo boxes and text boxes
     // (Panel::PaintTraverse paints contents with the inset, the border and
     // background without); a transparent CSS border does the same. Not on tabs:
@@ -443,12 +457,15 @@
       t('.vg-grip i:nth-child(odd)', `background:${css('FrameGrip.Color1', G)};`);
       t('.vg-grip i:nth-child(even)', `background:${css('FrameGrip.Color2', G)};`);
       // tabs: no hover state; pressed = selected
-      const tab = bg('Button.BgColor', G), tabP = bg('Button.SelectedBgColor', G);
+      const tU = underOf('TabBorder', G), aU = underOf('TabActiveBorder', G);
+      const tab = bg('Button.BgColor', tU), tabP = bg('Button.SelectedBgColor', tU);
+      const act = bg('Button.BgColor', aU), actP = bg('Button.SelectedBgColor', aU);
       t('.vg-tab', `color:${css('PropertySheet.TextColor', tab.c)};background:${tab.css};`);
-      t('.vg-tab.on', `color:${css('PropertySheet.SelectedTextColor', tab.c)};`);
+      t('.vg-tab.on', `color:${css('PropertySheet.SelectedTextColor', act.c)};background:${act.css};`);
       t('.vg-tab:active', `background:${tabP.css};color:${css('PropertySheet.TextColor', tabP.c)};`);
-      t('.vg-tab.on:active', `color:${css('PropertySheet.SelectedTextColor', tabP.c)};`);
+      t('.vg-tab.on:active', `background:${actP.css};color:${css('PropertySheet.SelectedTextColor', actP.c)};`);
       bd('.vg-tab', tab.c, 'tab'); bd('.vg-tab:active', tabP.c, 'tab');
+      bd('.vg-tab.on', act.c, 'tab'); bd('.vg-tab.on:active', actP.c, 'tab');
       bd('.vg-tbtn', cb.c, 'titlebtn');
       // buttons, over the window or (column headers) over the list
       const buttons = (sel, U) => {
@@ -626,6 +643,34 @@
     }));
     if (!img.length) return null;
     return { img: img.join(','), geo: `background-position:${pos.join(',')};background-size:${size.join(',')};background-repeat:no-repeat;` };
+  }
+
+  // Panel::GetCornerTextureSize: the corner textures that round a
+  // "backgroundtype" 2 background are max(GetProportionalScaledValue(8) / 2, 8)
+  // px, on the 480-line base: 12px at 1440p (measured in-game). They're quarter
+  // circles, so the corners are that radius.
+  function cornerSize(yres) {
+    return Math.max(Math.floor(Math.floor(8 * yres / 480 + 1e-6) / 2), 8);
+  }
+  // A "paintfirst" border paints before the control's background and contents
+  // (Panel::PaintTraverse). The border goes on a ::before below the contents,
+  // and the ::after repaints the background (opaque, already blended) over it.
+  const PAINT_FIRST = 'isolation:isolate;';
+  const BG_OVER = 'content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:inherit;border-radius:inherit';
+  // The average color of a tinted texture, blended in linear light: what a
+  // translucent background painted over the border is blended with
+  function imageMean(img, tint) {
+    const src = img.rgba, n = img.width * img.height;
+    if (!n) return null;
+    const t = tint ? tint.map(v => v / 255) : [1, 1, 1, 1];
+    const sum = [0, 0, 0, 0];
+    for (let i = 0; i < n; i++) {
+      const a = src[i * 4 + 3] / 255;
+      for (let c = 0; c < 3; c++) sum[c] += s2l(src[i * 4 + c] * t[c]) * a;
+      sum[3] += a;
+    }
+    if (!sum[3]) return [0, 0, 0, 0];
+    return [0, 1, 2].map(c => Math.round(l2s(sum[c] / sum[3]))).concat(Math.round(sum[3] / n * 255));
   }
 
   // An image border as the body of a ::after rule, or a dashed placeholder while
@@ -1231,6 +1276,10 @@
   root.Preview = Preview;
   // the border painters, for the ClientScheme border preview (borders.js)
   Preview.imageBorderCss = imageBorderCss;
+  Preview.cornerSize = cornerSize;
+  Preview.imageMean = imageMean;
+  Preview.PAINT_FIRST = PAINT_FIRST;
+  Preview.BG_OVER = BG_OVER;
   Preview.lineLayers = lineLayers;
   Preview.CONTROLS = CONTROLS;
   Preview.BORDERS = BORDERS;

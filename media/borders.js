@@ -155,16 +155,24 @@
     const sc = S.scheme, pick = borderFor(stateNow());
     const bgRes = sc && S.bg.trim() ? sc.resolve(S.bg) : null;
     const under = bgRes && bgRes.ok ? bgRes.rgba : null;
-    let css = `#panel{background:${under ? rgbaCss(under) : 'transparent'};}`;
+    let css0 = '';
     const b = sc && pick.name ? sc.border(pick.name) : null;
+    let bgc = under;
     if (b && b.kind === 'image') {
-      const tint = b.color ? sc.resolve(b.color) : null;
-      css += `#panel::after{${Preview.imageBorderCss(b, imageFor(b.image), S.yres, tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null)}}`;
+      const tint = b.color ? sc.resolve(b.color) : null, rgba = tint && tint.ok ? tint.rgba.slice(0, 3).concat(255) : null, img = imageFor(b.image);
+      const body = Preview.imageBorderCss(b, img, S.yres, rgba);
+      if (b.paintfirst) {
+        // painted under the background, which blends over the texture
+        const m = img && under && under[3] < 255 ? Preview.imageMean(img, rgba) : null;
+        if (m) bgc = Preview.over(under, m);
+        css0 = `#panel{${Preview.PAINT_FIRST}}#panel::before{${body};z-index:-1}#panel::after{${Preview.BG_OVER}}`;
+      } else css0 = `#panel::after{${body}}`;
     } else if (b) {
       const ly = Preview.lineLayers(b, under);
-      css += `#panel::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;${ly ? `background-image:${ly.img};${ly.geo}` : ''}}`;
-      if (b.backgroundtype === 2) css += '#panel{border-radius:7px}';
+      css0 = `#panel::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;${ly ? `background-image:${ly.img};${ly.geo}` : ''}}`;
     }
+    let css = `#panel{background:${bgc ? rgbaCss(bgc) : 'transparent'};}` + css0;
+    if (b && b.backgroundtype === 2) css += `#panel{border-radius:${Preview.cornerSize(S.yres)}px}`;
     style.textContent = css;
     // the area the panel's contents paint in: the panel less the border's inset
     const box = $('#insetbox'), [l, t, r, bt] = b ? b.inset : [0, 0, 0, 0];
@@ -211,8 +219,10 @@
         if (!lines.length) return '';
         return `<div class="bside"><span class="muted">${side}</span>${lines.map(l => `<span class="line">${sw(l.rgba)}${defLink(l.entry.node, l.ref)}${l.ok ? '' : ' <span class="bad">undefined</span>'}${l.start || l.end ? ` <span class="muted">offset ${l.start} ${l.end}</span>` : ''}</span>`).join('')}</div>`;
       }).join('');
-      body += (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>') + (b.backgroundtype === 2 ? '<div class="val muted">backgroundtype 2: rounded corners</div>' : '');
+      body += (sides ? `<div class="sides">${sides}</div>` : '<div class="val muted">No lines</div>');
     }
+    if (b.backgroundtype === 2) body += `<div class="val muted">backgroundtype 2: the panel's background gets rounded ${Preview.cornerSize(S.yres)}px corners; the border itself stays square</div>`;
+    if (b.paintfirst) body += '<div class="val muted">paintfirst 1: painted under the panel\'s background and text, not over them</div>';
     if (b.inset.some(v => v)) body += `<div class="val muted">inset ${b.inset.join(' ')} moves the panel's contents in; the border itself doesn't move</div>`;
     return { at: loc((via[0] || m).node), body };
   }
