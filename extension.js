@@ -173,8 +173,9 @@ function readText(abs) {
 }
 
 // ---------------------------------------------------------------------------
-// ClientScheme border preview: one resizable panel drawn with a border from
-// resource/clientscheme.res and the files it #bases.
+// Border preview: one resizable panel drawn with a border from
+// resource/clientscheme.res or resource/sourcescheme.res and the files it
+// #bases (sourcescheme.res ending with the game's SourceSchemeBase.res).
 // ---------------------------------------------------------------------------
 const BORDER_VIEW = 'tf2SourceScheme.borderPreview';
 let borders = null; // the open BorderPreview
@@ -237,9 +238,10 @@ ${scripts}
     const chain = HUD.loadChain(this.entry, readText);
     this.root = chain.root;
     this.watched = new Set(chain.files.map(f => path.resolve(f.fsPath).toLowerCase()));
-    const label = path.basename(chain.root);
-    this.panel.title = `Borders: ${label}`;
-    post({ type: 'scheme', reset: !!reset, label, entry: chain.files[0] ? chain.files[0].key : null, files: chain.files,
+    const label = path.basename(chain.root), source = HUD.isSourceScheme(this.entry);
+    const files = source ? chain.files.concat([{ key: HUD.ENGINE_KEY, path: 'SourceSchemeBase.res (game)', fsPath: ENGINE_URI.toString(), text: engineText, virtual: true }]) : chain.files;
+    this.panel.title = `Borders: ${label}${source ? ' (SourceScheme)' : ''}`;
+    post({ type: 'scheme', reset: !!reset, label, kind: source ? 'source' : 'client', entry: chain.files[0] ? chain.files[0].key : null, engineKey: source ? HUD.ENGINE_KEY : null, files,
       missing: chain.missing.map(m => ({ from: path.basename(m.from), ref: m.ref })) });
   }
 
@@ -276,11 +278,11 @@ ${scripts}
   }
 }
 
-// The clientscheme.res a document belongs to (it, or a file it #bases), or null
-function clientEntryForDoc(doc) {
+// The clientscheme.res or sourcescheme.res a document belongs to (it, or a file it #bases), or null
+function schemeEntryForDoc(doc) {
   if (!doc || doc.uri.scheme !== 'file' || !/\.res$/i.test(doc.uri.fsPath)) return null;
   const ws = vscode.workspace.getWorkspaceFolder(doc.uri);
-  try { return HUD.clientEntryFor(doc.uri.fsPath, ws && ws.uri.fsPath, readText); } catch (e) { return null; }
+  try { return HUD.schemeEntryFor(doc.uri.fsPath, ws && ws.uri.fsPath, readText); } catch (e) { return null; }
 }
 
 // Open a file (or the built-in SourceSchemeBase.res) at a character offset.
@@ -338,16 +340,16 @@ function activate(context) {
 
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openPreview', open));
 
-  // ClientScheme border preview: the editor title button, and the CodeLens above each border
+  // Border preview: the editor title button, and the CodeLens above each border
   const openBorders = async (uri, name, slot) => {
     let entry = null;
     const editor = vscode.window.activeTextEditor;
     if (typeof uri === 'string') uri = vscode.Uri.file(uri);
     if (uri && uri.fsPath) {
       const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
-      entry = doc ? clientEntryForDoc(doc) : HUD.findEntry(uri.fsPath, null, HUD.CLIENT_SCHEME);
+      entry = doc ? schemeEntryForDoc(doc) : HUD.schemeEntryFor(uri.fsPath, null, readText);
     }
-    if (!entry && editor) entry = clientEntryForDoc(editor.document);
+    if (!entry && editor) entry = schemeEntryForDoc(editor.document);
     if (!entry) {
       const hits = await vscode.workspace.findFiles('**/[rR][eE][sS][oO][uU][rR][cC][eE]/[cC][lL][iI][eE][nN][tT][sS][cC][hH][eE][mM][eE].[rR][eE][sS]', '**/node_modules/**', 1);
       entry = hits.length ? hits[0].fsPath : null;
@@ -357,14 +359,14 @@ function activate(context) {
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, { enableScripts: true, retainContextWhenHidden: true });
     borders = new BorderPreview(context, panel, entry);
     borders.show(name, slot);
-    if (!entry) vscode.window.showInformationMessage('Open a HUD folder that contains resource/clientscheme.res to preview its borders.');
+    if (!entry) vscode.window.showInformationMessage('Open a HUD folder that contains resource/clientscheme.res or sourcescheme.res to preview its borders.');
   };
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.openBorderPreview', uri => openBorders(uri)));
   context.subscriptions.push(vscode.commands.registerCommand('tf2SourceScheme.previewBorder', (fsPath, name, slot) => openBorders(fsPath, name, slot)));
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(BORDER_VIEW, {
     async deserializeWebviewPanel(panel) {
       const editor = vscode.window.activeTextEditor;
-      let entry = editor ? clientEntryForDoc(editor.document) : null;
+      let entry = editor ? schemeEntryForDoc(editor.document) : null;
       if (!entry) {
         const hits = await vscode.workspace.findFiles('**/[rR][eE][sS][oO][uU][rR][cC][eE]/[cC][lL][iI][eE][nN][tT][sS][cC][hH][eE][mM][eE].[rR][eE][sS]', '**/node_modules/**', 1);
         entry = hits.length ? hits[0].fsPath : null;
@@ -376,7 +378,7 @@ function activate(context) {
   context.subscriptions.push(lensEmitter, vscode.languages.registerCodeLensProvider({ scheme: 'file', pattern: '**/*.[rR][eE][sS]' }, {
     onDidChangeCodeLenses: lensEmitter.event,
     provideCodeLenses(doc) {
-      if (!clientEntryForDoc(doc)) return [];
+      if (!schemeEntryForDoc(doc)) return [];
       // Armed and Selected also turn Button borders on
       const links = [['Preview', 0], ['Armed', 1], ['Selected', 2]];
       const tips = ['Show this border (border_default)', 'Use this border for border_armed (hover)', 'Use this border for border_selected (pressed)'];
@@ -386,20 +388,20 @@ function activate(context) {
       });
     },
   }));
-  // shows the title bar button on clientscheme.res and the files it #bases
+  // shows the title bar button on clientscheme.res, sourcescheme.res and the files they #base
   let ctxTimer = 0;
   const updateContext = () => {
     clearTimeout(ctxTimer);
     ctxTimer = setTimeout(() => {
       const ed = vscode.window.activeTextEditor;
-      vscode.commands.executeCommand('setContext', 'tf2ClientSchemeFile', !!(ed && clientEntryForDoc(ed.document)));
+      vscode.commands.executeCommand('setContext', 'tf2SchemeFile', !!(ed && schemeEntryForDoc(ed.document)));
     }, 50);
   };
   updateContext();
   context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
     updateContext();
     if (!borders || !editor) return;
-    const entry = clientEntryForDoc(editor.document);
+    const entry = schemeEntryForDoc(editor.document);
     if (entry) borders.setEntry(entry);
   }));
   context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(() => { updateContext(); lensEmitter.fire(); }));

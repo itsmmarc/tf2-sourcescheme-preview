@@ -2,9 +2,9 @@
 
 A VS Code extension that previews a Team Fortress 2 HUD's `resource/sourcescheme.res`. It draws mock versions of the server browser, options dialog and console from the scheme, updating live as the user types. Clicking any element shows every color, font, border and string behind it, each linked to its definition.
 
-It also has a ClientScheme border preview: one resizable panel drawn with borders from `resource/clientscheme.res` and its `#base` chain.
+It also has a border preview: one resizable panel drawn with borders from `resource/clientscheme.res` or `resource/sourcescheme.res` and its `#base` chain (a sourcescheme chain ends with the built-in `SourceSchemeBase.res`; a file in both chains uses the ClientScheme).
 
-Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.8.
+Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main`). Current version is 0.6.9.
 
 ## Build and install
 
@@ -17,22 +17,22 @@ Repo: https://github.com/itsmmarc/tf2-sourcescheme-preview (default branch `main
 
 | File | Role |
 |---|---|
-| `extension.js` | Extension host. Opens the webview panels (`Preview` for SourceScheme, `BorderPreview` for ClientScheme borders), loads the `#base` chains, sends fonts, images, HUD strings and options layouts, watches files, creates `sourcescheme.res` from the empty state's button. Registers the commands, including the right-click menu ones, the border CodeLens and the `tf2ClientSchemeFile` context key. |
-| `lib/hud.js` | Plain Node, no VS Code APIs. Finds the HUD (`findHud`: the folder with `info.vdf`, falling back to the nearest `resource/sourcescheme.res`), creates a scheme (`createScheme`), loads the options layouts (`loadLayouts`: `resource/optionssub<tab>.res` and their `#base`s), resolves paths case-insensitively, follows `#base` (`loadChain`), loads `CustomFontFiles`, finds image borders (`readImage`: HUD first, then the game's files), and parses `resource/chat_english.txt` (`loadStrings`). For ClientScheme: `clientEntryFor` (the clientscheme.res whose chain holds a file) and `bordersIn` (border definitions in a file, for the CodeLens). |
+| `extension.js` | Extension host. Opens the webview panels (`Preview` for SourceScheme, `BorderPreview` for ClientScheme or SourceScheme borders), loads the `#base` chains, sends fonts, images, HUD strings and options layouts, watches files, creates `sourcescheme.res` from the empty state's button. Registers the commands, including the right-click menu ones, the border CodeLens and the `tf2SchemeFile` context key. |
+| `lib/hud.js` | Plain Node, no VS Code APIs. Finds the HUD (`findHud`: the folder with `info.vdf`, falling back to the nearest `resource/sourcescheme.res`), creates a scheme (`createScheme`), loads the options layouts (`loadLayouts`: `resource/optionssub<tab>.res` and their `#base`s), resolves paths case-insensitively, follows `#base` (`loadChain`), loads `CustomFontFiles`, finds image borders (`readImage`: HUD first, then the game's files), and parses `resource/chat_english.txt` (`loadStrings`). For the border preview: `clientEntryFor` (the clientscheme.res, or another scheme by name, whose chain holds a file), `schemeEntryFor` (clientscheme, then sourcescheme) and `bordersIn` (border definitions in a file, for the CodeLens). |
 | `lib/vpk.js` | The game's own files: a VPK v1/v2 reader, `findGame` (the `tf2SourceScheme.teamFortress2Folder` setting, then `vscode-vdf.teamFortress2Folder`, a folder above the HUD, Steam libraries from `libraryfolders.vdf`) and `gameFiles` (tf then hl2, loose files before `*_textures_dir.vpk` and `*_misc_dir.vpk`). Tested only on synthetic VPKs. |
 | `media/kv.js` | KeyValues tokenizer and parser, plus `#base` resolution and merging. Shared by host and webview. |
 | `media/scheme.js` | `Scheme`: merged colors, base settings, fonts (picks `yres` entries), borders, problem list. |
 | `media/preview.js` | The renderer: all three dialogs, scheme→CSS, the `CONTROLS` table (which scheme keys each control reads, with fallbacks), interaction, resizing, string tokens (`TOK`), and the HUD layout engine (`setLayouts`, `layoutRects`, `layoutPage`, `LAYOUT_BIND`, `CVARS`). |
 | `media/gameui_strings.js` | The game's English text for every `GameUI_` token (generated from `hl2/resource/gameui_english.txt` in GameTracking-TF2), for `#GameUI_*` labels in layout files. |
 | `media/webview.js` | Webview chrome: toolbar, zoom, sidebar inspector, state persistence, messages from the host. |
-| `media/borders.js`, `media/borders.css` | The ClientScheme border preview webview: one border, or three slots with the "Button borders" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button borders, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. The CodeLens always shows Preview · Armed · Selected; Armed and Selected turn Button borders on. |
+| `media/borders.js`, `media/borders.css` | The border preview webview (ClientScheme or SourceScheme; the host sends `kind` and `engineKey`): one border, or three slots with the "Button borders" checkbox; border dropdowns in the side panel (things the game reads), preview-only settings in the toolbar (Button borders, Show inset, bgcolor dropdown over scheme colors, wide/tall fields, zoom); the resizable panel with hover/press states. Draws with `Preview.lineLayers` and `Preview.imageBorderCss` from `preview.js`. The CodeLens always shows Preview · Armed · Selected; Armed and Selected turn Button borders on. |
 | `media/vgui.css`, `media/webview.css` | Mock dialog styles and webview chrome styles. |
 | `media/fonts.js`, `media/vtf.js` | Font loading and substitution; VTF texture decoding for image borders. |
 | `media/engine_base.res` | The game's real `SourceSchemeBase.res`, built in as the end of every `#base` chain. |
 
 Host→webview messages: `scheme`, `font`, `image`, `strings`, `layouts` (`[{ tab, files, missing }]`), `showTab` (an options tab, when its `optionssub*.res` is opened or typed in), `settings` (screen height), `zoom` (`in`/`out`/`fit`/`reset`), `resetSize`, `empty` (`hud`: the HUD's name when it has an `info.vdf` but no scheme, which shows the create button). Webview→host: `ready`, `open`, `image`, `state`, `createScheme`. The border preview gets `scheme`, `image`, `settings`, `empty` and `border` (`name` and `slot` 0–2, from a CodeLens link). It doesn't follow the editor cursor; the user found that clunky.
 
-Contributed commands are `tf2SourceScheme.openPreview`, `openBorderPreview` (editor title, when `tf2ClientSchemeFile`), `previewBorder` (CodeLens only), plus `zoomIn`, `zoomOut`, `zoomFit`, `zoomReset` and `resetWindowSize`. All but the first appear only in `webview/context`, scoped by `webviewId == 'tf2SourceScheme.preview'`; Reset Window Size also needs `tf2Resizable`, set through `data-vscode-context` on resizable frames.
+Contributed commands are `tf2SourceScheme.openPreview`, `openBorderPreview` (editor title, when `tf2SchemeFile`), `previewBorder` (CodeLens only), plus `zoomIn`, `zoomOut`, `zoomFit`, `zoomReset` and `resetWindowSize`. All but the first appear only in `webview/context`, scoped by `webviewId == 'tf2SourceScheme.preview'`; Reset Window Size also needs `tf2Resizable`, set through `data-vscode-context` on resizable frames.
 
 The setting `tf2SourceScheme.screenHeight` defaults to 1440. `tf2SourceScheme.teamFortress2Folder` (empty = auto-detect) points at the game for stock materials.
 

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
-// ClientScheme border preview: a panel drawn with borders from
-// resource/clientscheme.res and the files it #bases. By default it shows one
+// Border preview: a panel drawn with borders from resource/clientscheme.res
+// or resource/sourcescheme.res and the files it #bases. By default it shows one
 // border. With slots on, three slots stand for a button's border keys:
 // hovering the panel shows the armed one and pressing it the selected one,
 // the way TF2's CExButton picks its border.
@@ -74,7 +74,7 @@
         </div>
       </section>
       <aside class="side" id="side" aria-label="Border preview settings">
-        <div class="head"><div><span class="eyebrow">ClientScheme borders</span><h2 id="hud"></h2></div></div>
+        <div class="head"><div><span class="eyebrow" id="kind">ClientScheme borders</span><h2 id="hud"></h2></div></div>
         <h3 id="slotshead">Border</h3>
         ${SLOTS.map((s, i) => `
         <div class="slotcard" data-i="${i}">
@@ -100,9 +100,11 @@
 
   function loadScheme(m) {
     const files = new Map();
-    for (const f of m.files) files.set(f.key, { key: f.key, path: f.path, fsPath: f.fsPath, text: f.text });
+    for (const f of m.files) files.set(f.key, { key: f.key, path: f.path, fsPath: f.fsPath, text: f.text, virtual: !!f.virtual, readOnly: !!f.virtual });
     S.files = files; S.label = m.label; S.missing = m.missing || [];
-    S.scheme = new Scheme({ files, entry: m.entry, engineKey: null });
+    // sourcescheme.res ends with the game's own SourceSchemeBase.res
+    S.scheme = new Scheme({ files, entry: m.entry, engineKey: m.engineKey || null });
+    $('#kind').textContent = m.kind === 'source' ? 'SourceScheme borders' : 'ClientScheme borders';
     const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
     S.names = [...S.scheme.borders.values()].map(b => b.key).sort(byName);
     S.colorNames = [...S.scheme.colors.values()].filter(c => !c.block).map(c => c.key).sort(byName);
@@ -114,7 +116,7 @@
   function showEmpty() {
     S.scheme = null;
     $('.main').hidden = true;
-    if (!$('#empty')) $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty"><strong>No clientscheme.res found</strong><p>Open a HUD folder that contains resource/clientscheme.res, then click a border's Preview link.</p></div>`);
+    if (!$('#empty')) $('#app').insertAdjacentHTML('beforeend', `<div class="emptystate" id="empty"><strong>No scheme found</strong><p>Open a HUD folder that contains resource/clientscheme.res or sourcescheme.res, then click a border's Preview link.</p></div>`);
   }
 
   function imageFor(p) {
@@ -192,7 +194,7 @@
   function loc(node) {
     const f = node && node.file;
     if (!f || node.keyS == null) return '';
-    return `<a href="#" class="loc" data-file="${esc(f.fsPath)}" data-off="${node.keyS}" title="${esc(f.path)}">${esc(f.path.split('/').pop())}:${window.KV.lineNo(f.text, node.keyS)}</a>`;
+    return `<a href="#" class="loc" data-file="${esc(f.fsPath)}" data-off="${node.keyS}" title="${esc(f.virtual ? 'The game\'s own SourceSchemeBase.res' : f.path)}">${esc(f.virtual ? 'SourceSchemeBase.res' : f.path.split('/').pop())}:${window.KV.lineNo(f.text, node.keyS)}</a>`;
   }
   function borderDetail(name) {
     const sc = S.scheme, { m, via } = sc.borderEntry(name);
